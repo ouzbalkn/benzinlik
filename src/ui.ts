@@ -1,5 +1,6 @@
 import { Car } from './cars'
 import { FuelType, FUELS, FUEL_LABEL, GameState, getShopItems, getMaintenanceItems } from './state'
+import { audio } from './audio'
 
 function el<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T
@@ -171,6 +172,17 @@ export class UI {
     el<HTMLButtonElement>('resetbtn').addEventListener('click', () => {
       if (confirm('Tüm ilerleme silinecek. Emin misin?')) this.onReset()
     })
+
+    // ses ayarları
+    const musicBtn = el<HTMLButtonElement>('musicbtn')
+    const sfxBtn = el<HTMLButtonElement>('sfxbtn')
+    const syncAudioLabels = () => {
+      musicBtn.textContent = `Müzik: ${audio.musicOn ? 'Açık' : 'Kapalı'}`
+      sfxBtn.textContent = `Efektler: ${audio.sfxOn ? 'Açık' : 'Kapalı'}`
+    }
+    syncAudioLabels()
+    musicBtn.addEventListener('click', () => { audio.toggleMusic(); syncAudioLabels() })
+    sfxBtn.addEventListener('click', () => { audio.toggleSfx(); syncAudioLabels() })
 
     // servis paneli
     this.nozBenzin.addEventListener('click', () => this.pickNozzle('benzin'))
@@ -419,6 +431,8 @@ export class UI {
   }
 
   toast(msg: string, kind: 'good' | 'bad' | '' = '') {
+    if (kind === 'good') audio.cash()
+    else if (kind === 'bad') audio.bad()
     const box = el<HTMLDivElement>('toasts')
     while (box.children.length >= 4) box.firstElementChild?.remove()
     const t = document.createElement('div')

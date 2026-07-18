@@ -8,6 +8,7 @@ import {
   parcelKey, parcelCost, buyItem, doMaintenance, getShopItems, serializeState, hydrateState, checkAchievements,
 } from './state'
 import { loadModels, loadStatics } from './models'
+import { audio } from './audio'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -60,6 +61,9 @@ window.addEventListener('wheel', e => {
 }, { passive: true })
 resize()
 updateCamera()
+
+// tarayıcı autoplay kuralı: ilk dokunuşta ses sistemini aç
+window.addEventListener('pointerdown', () => audio.ensure(), { once: true })
 
 // Kenney modelleri (yüklenemezse prosedürele düşer)
 const [modelLib, staticLib] = await Promise.all([loadModels(), loadStatics()])
@@ -800,6 +804,7 @@ window.addEventListener('keydown', e => {
 renderer.domElement.addEventListener('contextmenu', e => { e.preventDefault(); cancelPlacement() })
 
 ui.onBuy = id => {
+  audio.click()
   if (id === 'land' || id === 'pave') {
     startZoneMode(id)
     return
@@ -823,6 +828,7 @@ ui.onMove = id => {
 }
 
 function buyToast(id: string) {
+  audio.build()
   switch (id) {
     case 'pump': ui.toast(`⛽ Pompa #${state.pumps} kuruldu!`, 'good'); break
     case 'sign': ui.toast('🪧 Tabela büyüdü — daha çok müşteri gelecek!', 'good'); break
@@ -1277,6 +1283,7 @@ function frame() {
   if (state.exploded) {
     exploding = true
     localStorage.removeItem(SAVE_KEY) // her şey sıfırlanır
+    audio.boom()
     ui.showBoom()
     setTimeout(() => location.reload(), 3500)
     return
@@ -1356,7 +1363,8 @@ function frame() {
 
   // pompalar bağımsız: dolumdaki HER araç aynı anda ilerler
   for (const c of [...cars.cars]) {
-    if (c.phase === 'atPump' && c.kind === 'fuel') c.beingServed = c.filling
+    // tabanca seçildiyse işlem başladı demektir: sabır donar, müşteri beklemeden gitmez
+    if (c.phase === 'atPump' && c.kind === 'fuel') c.beingServed = c.filling || !!c.nozzle
     if (!(c.filling && c.kind === 'fuel' && c.phase === 'atPump' && c.nozzle && !c.wrongFuelHandled)) continue
     if (state.tanks[c.nozzle] <= 0) {
       ui.toast(`${FUEL_LABEL[c.nozzle]} tankı boş kaldı! Satış yarım kaldı — sipariş ver.`, 'bad')

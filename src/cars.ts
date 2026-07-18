@@ -201,7 +201,7 @@ export class Car {
     this.demandAmount = DEMAND_AMOUNTS[Math.floor(Math.random() * DEMAND_AMOUNTS.length)]
     this.demandLiters = this.demandAmount / FUEL_PRICE[this.demandType]
     this.demandKwh = 20 + Math.floor(Math.random() * 9) * 5 // 20..60
-    this.maxPatience = kind === 'ev' ? 25 : 40
+    this.maxPatience = kind === 'ev' ? 45 : 75
     this.patience = this.maxPatience
     this.wantsMarket = Math.random() < 0.35
     this.wantsToilet = Math.random() < 0.3
