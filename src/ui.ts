@@ -22,6 +22,8 @@ export interface BuildingCard {
   stats: [string, string, ('' | 'good' | 'bad')?][]
   action?: { label: string; maintId: string }
   move?: { label: string; id: string }
+  /** karttan doğrudan yükseltme/satın alma */
+  buy?: { label: string; id: string }
   /** ofis kartı: yakıt satış fiyatı kontrolleri */
   priceRows?: { f: FuelType; label: string; price: number; cost: number; canDown: boolean; canUp: boolean }[]
 }
@@ -125,6 +127,7 @@ export class UI {
   private infoMove = el<HTMLButtonElement>('binfo-move')
   private currentAction: string | null = null
   private currentMove: string | null = null
+  private currentBuy: string | null = null
 
   private shopOpen = false
   private shopRenderT = 0
@@ -251,6 +254,9 @@ export class UI {
     this.infoMove.addEventListener('click', () => {
       if (this.currentMove) this.onMove(this.currentMove)
     })
+    el<HTMLButtonElement>('binfo-buy').addEventListener('click', () => {
+      if (this.currentBuy) this.onBuy(this.currentBuy)
+    })
     el<HTMLDivElement>('binfo-prices').addEventListener('click', e => {
       const btn = (e.target as HTMLElement).closest('button[data-pf]') as HTMLButtonElement | null
       if (btn) this.onPriceChange(btn.dataset.pf as FuelType, Number(btn.dataset.pd))
@@ -353,6 +359,15 @@ export class UI {
     } else {
       this.infoMove.style.display = 'none'
       this.currentMove = null
+    }
+    const buyBtn = el<HTMLButtonElement>('binfo-buy')
+    if (card.buy) {
+      buyBtn.style.display = 'flex'
+      buyBtn.textContent = stripEmoji(card.buy.label)
+      this.currentBuy = card.buy.id
+    } else {
+      buyBtn.style.display = 'none'
+      this.currentBuy = null
     }
     this.infoCard.classList.add('show')
   }

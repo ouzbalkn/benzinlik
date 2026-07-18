@@ -571,7 +571,7 @@ function rebuildFromState() {
   for (let i = 1; i < state.pumps; i++) world.addPump(i)
   for (let i = 0; i < state.evChargers; i++) world.addEvCharger(i)
   world.setSign(state.signLevel)
-  for (let l = 1; l <= state.tankLevel; l++) world.upgradeTankVisual(l)
+  if (state.tankLevel > 0) world.upgradeTankVisual(state.tankLevel)
   const pv = (id: string) => (placedPos[id] ? new THREE.Vector2(placedPos[id][0], placedPos[id][1]) : undefined)
   if (state.marketLevel > 0) world.buildMarket(state.marketLevel, pv('market'))
   if (state.toiletLevel > 0) world.buildToilet(state.toiletLevel, pv('toilet'))
@@ -894,6 +894,7 @@ ui.onBuy = id => {
   buildVisual(id)
   buyToast(id)
   persist()
+  if (selectedBuilding) refreshBuildingCard()
 }
 
 ui.onMove = id => {
@@ -1322,6 +1323,14 @@ function refreshBuildingCard() {
   if (!selectedBuilding) return
   const card = buildingCard(selectedBuilding)
   if (!card) return
+  // karttan doğrudan yükseltme: ilgili mağaza kalemi alınabilir durumdaysa buton koy
+  const shopId = selectedBuilding.startsWith('pump-') ? 'pump'
+    : selectedBuilding.startsWith('charger-') ? 'evcharger'
+    : selectedBuilding
+  const row = getShopItems(state).find(r => r.id === shopId)
+  if (row && row.status === 'buy' && row.cost !== null) {
+    card.buy = { label: `${row.title} — ₺${row.cost.toLocaleString('tr-TR')}`, id: shopId }
+  }
   if (selectedBuilding in PLACEABLE) {
     card.move = { label: 'Taşı (ücretsiz)', id: selectedBuilding }
   }

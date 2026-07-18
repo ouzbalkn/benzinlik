@@ -396,7 +396,7 @@ export class World {
     // ana yakıt tankı (küre) + borular
     this.tankGroup = new THREE.Group()
     s.add(this.tankGroup)
-    this.addSphereTank(TANK_POS.x, TANK_POS.y)
+    this.buildTankCluster(0)
     this.register('tank', 'YAKIT TANKI', this.tankGroup, 0)
     const tankLabel = this.buildings.find(b => b.id === 'tank')!
     ;(tankLabel.group.children.find(o => o instanceof THREE.Sprite) as THREE.Sprite)
@@ -683,22 +683,35 @@ export class World {
     this.scene.add(apron)
   }
 
-  private addSphereTank(x: number, y: number) {
+  private addSphereTank(x: number, y: number, R = 1.15, bandColor = 0xd64545) {
     const g = new THREE.Group()
-    const R = 1.15
     const sp = new THREE.Mesh(new THREE.SphereGeometry(R, 24, 18), lam(0xdfe3e8))
     sp.position.z = R + 0.55
     sp.castShadow = true
     g.add(sp)
-    const band = new THREE.Mesh(new THREE.TorusGeometry(R * 0.97, 0.05, 8, 28), lam(0xd64545))
+    const band = new THREE.Mesh(new THREE.TorusGeometry(R * 0.97, 0.05, 8, 28), lam(bandColor))
     band.position.z = R + 0.55
     g.add(band)
     for (const [lx, ly] of [[0.6, 0.6], [0.6, -0.6], [-0.6, 0.6], [-0.6, -0.6]] as const) {
-      cyl(0.09, 1.4, 0x8f979e, lx, ly, 0.7, 'z', g)
+      cyl(0.09, R + 0.35, 0x8f979e, lx * (R / 1.15), ly * (R / 1.15), (R + 0.35) / 2, 'z', g)
     }
     cyl(0.05, 0.45, 0x8f979e, 0, 0, R * 2 + 0.6, 'z', g)
     g.position.set(x, y, 0)
     this.tankGroup.add(g)
+  }
+
+  /** seviye arttıkça küre sayısı, boyutu ve kuşak rengi değişir */
+  buildTankCluster(level: number) {
+    for (const ch of [...this.tankGroup.children]) {
+      if (!(ch as THREE.Sprite).isSprite) this.tankGroup.remove(ch)
+    }
+    const spots: [number, number][] = [
+      [TANK_POS.x, TANK_POS.y], [TANK_POS.x, TANK_POS.y + 2.4],
+      [TANK_POS.x + 2.2, TANK_POS.y], [TANK_POS.x + 2.2, TANK_POS.y + 2.4],
+    ]
+    const R = 1.02 + level * 0.09
+    const bandColor = [0xd64545, 0x2f6fed, 0xe8862e, 0x39424e][level]
+    for (let i = 0; i <= level; i++) this.addSphereTank(spots[i][0], spots[i][1], R, bandColor)
   }
 
   private placeTree(x: number, y: number, scale: number) {
@@ -1063,9 +1076,7 @@ export class World {
   }
 
   upgradeTankVisual(level: number) {
-    if (level === 1) this.addSphereTank(TANK_POS.x, TANK_POS.y + 2.4)
-    if (level === 2) this.addSphereTank(TANK_POS.x + 2.2, TANK_POS.y)
-    if (level === 3) this.addSphereTank(TANK_POS.x + 2.2, TANK_POS.y + 2.4)
+    this.buildTankCluster(level)
   }
 
   buildBattery(level: number, pos?: THREE.Vector2) {
