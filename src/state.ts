@@ -37,10 +37,15 @@ export const PARCEL_COLS: [number, number][] = [
 export const PARCEL_ROWS: [number, number][] = [[-24, -10], [-10, 10], [10, 24]]
 export const PAVE_COST = 2500
 export function parcelKey(c: number, r: number) { return `${c},${r}` }
-export function parcelCost(c: number, _r: number) {
-  if (c === 0) return 6000
-  if (c === 1 || c === 3) return 9000
-  return 14000
+/**
+ * Dinamik arsa fiyatı: istasyon geliştikçe emlak değerlenir.
+ * Az iş yapan çıplak istasyonda taban fiyat, dolu istasyonda katlanır.
+ */
+export function parcelCost(c: number, _r: number, s?: GameState) {
+  const base = c === 0 ? 6000 : (c === 1 || c === 3) ? 9000 : 14000
+  if (!s) return base
+  const mult = 1 + 0.12 * s.developmentScore()
+  return Math.round(base * mult / 100) * 100
 }
 /** komşuluk: aynı blokta yan yana/alt alta; 0↔3 yol karşısı sayılır */
 export function parcelsAdjacent(c1: number, r1: number, c2: number, r2: number): boolean {
@@ -113,6 +118,15 @@ export class GameState {
   get landNorth() { return this.pavedParcels.has(parcelKey(0, 2)) }
   get landWest() { return this.pavedParcels.has(parcelKey(1, 1)) }
   get anyLand() { return this.ownedParcels.size > 1 }
+
+  /** istasyonun ne kadar geliştiği (arsa fiyatlarını şişirir) */
+  developmentScore(): number {
+    return (this.pumps - 1) + this.evChargers + this.signLevel + this.tankLevel
+      + this.marketLevel + this.toiletLevel + this.gridLevel + this.batteryLevel
+      + [this.hasSolar, this.hasDiesel, this.hasSMR, this.hasWash, this.hasOil, this.hasCoffee,
+         this.hasRestaurant, this.hasTruckPark, this.hasAirWater, this.hasSelfWash, this.hasParking]
+        .filter(Boolean).length
+  }
 
   parcelAdjacentToOwned(c: number, r: number): boolean {
     for (const key of this.ownedParcels) {
@@ -307,8 +321,8 @@ export function getShopItems(s: GameState): ShopRow[] {
   const hasUnpaved = s.ownedParcels.size > s.pavedParcels.size
 
   row('land', 'i-land', `Arsa Satın Al (${s.ownedParcels.size}/18)`, '2 blok 3×3',
-    'Bitişik arsalardan birini seç — yolun karşısı da alınabilir (₺6-14 bin)',
-    s.ownedParcels.size >= 18 ? null : 6000, null)
+    'Bitişik arsalardan birini seç — istasyon geliştikçe emlak fiyatları artar',
+    s.ownedParcels.size >= 18 ? null : parcelCost(0, 0, s), null)
   row('pave', 'i-pave', 'Zemin Betonu', 'arsa başı',
     'Çimen arsana beton döşe (yapı kurmak için şart, güneş paneli hariç)',
     PAVE_COST, hasUnpaved ? null : 'Betonsuz arsan yok')

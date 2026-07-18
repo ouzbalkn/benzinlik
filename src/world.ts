@@ -593,6 +593,21 @@ export class World {
     if (b) (b.group as THREE.Group).rotation.z = rot * Math.PI / 2
   }
 
+  /** yerleştirme önizlemesi: az önce kurulan binayı kayıttan düşüp grubunu döndürür */
+  detachPreview(id: string): THREE.Group | null {
+    const b = this.buildings.find(x => x.id === id)
+    if (!b) return null
+    this.buildings = this.buildings.filter(x => x.id !== id)
+    if (id === 'smr') {
+      this.steam = this.steam.filter(s => {
+        let o: THREE.Object3D | null = s.mesh.parent
+        while (o) { if (o === b.group) return false; o = o.parent }
+        return true
+      })
+    }
+    return b.group as THREE.Group
+  }
+
   /** taşıma için: kayıtlı binayı sahneden kaldır */
   removeBuildingGroup(id: string) {
     const b = this.buildings.find(x => x.id === id)

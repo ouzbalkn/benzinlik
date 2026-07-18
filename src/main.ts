@@ -526,8 +526,61 @@ function overlaps(a: Rect, b: Rect): boolean {
   return Math.abs(a.cx - b.cx) < (a.w + b.w) / 2 && Math.abs(a.cy - b.cy) < (a.d + b.d) / 2
 }
 
-let placing: { id: string; w: number; d: number; grass: boolean; move: boolean; ghost: THREE.Mesh; valid: boolean; cx: number; cy: number; rot: number } | null = null
+let placing: {
+  id: string; w: number; d: number; grass: boolean; move: boolean
+  root: THREE.Group; planeMat: THREE.MeshBasicMaterial
+  valid: boolean; cx: number; cy: number; rot: number
+} | null = null
 const placedRot: Record<string, number> = {}
+
+/** yerleştirme için silik model önizlemesi üretir */
+function makePreview(id: string): THREE.Group | null {
+  let g: THREE.Group | null = null
+  const existing = world.buildings.find(b => b.id === id)
+  if (existing) {
+    g = (existing.group as THREE.Group).clone(true)
+  } else {
+    // binayı gerçekten kur, kayıttan düşüp hayalet olarak kullan
+    const bump = id === 'market' ? 'marketLevel' : id === 'toilet' ? 'toiletLevel' : id === 'battery' ? 'batteryLevel' : null
+    if (bump) (state as any)[bump]++
+    buildVisual(id, new THREE.Vector2(0, 0))
+    if (bump) (state as any)[bump]--
+    g = world.detachPreview(id)
+  }
+  if (!g) return null
+  g.position.set(0, 0, 0)
+  g.rotation.z = 0
+  g.traverse(o => {
+    if ((o as THREE.Sprite).isSprite) { o.visible = false; return }
+    const m = o as THREE.Mesh
+    if (m.isMesh && m.material) {
+      const mats = Array.isArray(m.material) ? m.material : [m.material]
+      const clones = mats.map(x => {
+        const c = (x as THREE.Material).clone()
+        c.transparent = true
+        ;(c as THREE.Material & { opacity: number }).opacity = 0.45
+        c.depthWrite = false
+        return c
+      })
+      m.material = (Array.isArray(m.material) ? clones : clones[0]) as THREE.Material
+      m.castShadow = false
+      m.receiveShadow = false
+    }
+  })
+  return g
+}
+
+/** ayak izi hücre çizgileri — kareler net görünsün */
+function footprintGrid(w: number, d: number): THREE.LineSegments {
+  const pts: number[] = []
+  const hw = w / 2, hd = d / 2
+  for (let x = -hw; x <= hw + 0.001; x += 1) pts.push(x, -hd, 0.07, x, hd, 0.07)
+  for (let y = -hd; y <= hd + 0.001; y += 1) pts.push(-hw, y, 0.07, hw, y, 0.07)
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+  return new THREE.LineSegments(geo,
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false }))
+}
 let zoneMode: { kind: 'land' | 'pave'; ghost: THREE.Mesh; c: number; r: number; valid: boolean } | null = null
 
 function parcelAt(x: number, y: number): [number, number] | null {
@@ -566,8 +619,17 @@ function makeGhost(w: number, d: number): THREE.Mesh {
 function startPlacement(id: string, move = false) {
   cancelPlacement()
   const f = PLACEABLE[id](move)
-  placing = { id, w: f.w, d: f.d, grass: !!f.grass, move, ghost: makeGhost(f.w, f.d), valid: false, cx: 0, cy: 0, rot: placedRot[id] ?? 0 }
-  placing.ghost.rotation.z = placing.rot * Math.PI / 2
+  const root = new THREE.Group()
+  const planeMat = new THREE.MeshBasicMaterial({ color: 0x37c97e, transparent: true, opacity: 0.22, depthWrite: false })
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(f.w, f.d), planeMat)
+  plane.position.z = 0.05
+  root.add(plane)
+  root.add(footprintGrid(f.w, f.d))
+  const preview = makePreview(id)
+  if (preview) root.add(preview)
+  world.scene.add(root)
+  placing = { id, w: f.w, d: f.d, grass: !!f.grass, move, root, planeMat, valid: false, cx: 0, cy: 0, rot: placedRot[id] ?? 0 }
+  root.rotation.z = placing.rot * Math.PI / 2
   world.showGrid(true)
   ui.closeShop()
   ui.hideBuildingCard()
@@ -588,7 +650,7 @@ function startZoneMode(kind: 'land' | 'pave') {
 
 function cancelPlacement() {
   if (placing) {
-    world.scene.remove(placing.ghost)
+    world.scene.remove(placing.root)
     placing = null
   }
   if (zoneMode) {
@@ -631,7 +693,7 @@ function confirmZone() {
   const z = zoneMode!
   const key = parcelKey(z.c, z.r)
   if (z.kind === 'land') {
-    const cost = parcelCost(z.c, z.r)
+    const cost = parcelCost(z.c, z.r, state)
     if (state.money < cost) { ui.toast('💸 Para yetmiyor!', 'bad'); return }
     state.money -= cost
     state.ownedParcels.add(key)
@@ -652,7 +714,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') cancelPlacement()
   if ((e.key === 'r' || e.key === 'R') && placing) {
     placing.rot = (placing.rot + 1) % 4
-    placing.ghost.rotation.z = placing.rot * Math.PI / 2
+    placing.root.rotation.z = placing.rot * Math.PI / 2
   }
 })
 renderer.domElement.addEventListener('contextmenu', e => { e.preventDefault(); cancelPlacement() })
@@ -994,11 +1056,12 @@ window.addEventListener('pointermove', e => {
       if (placing) {
         placing.cx = Math.round(pt.x)
         placing.cy = Math.round(pt.y)
-        placing.ghost.position.set(placing.cx, placing.cy, 0.06)
+        placing.root.position.set(placing.cx, placing.cy, 0)
         const odd = placing.rot % 2 === 1
         const eff = { cx: placing.cx, cy: placing.cy, w: odd ? placing.d : placing.w, d: odd ? placing.w : placing.d }
         placing.valid = isValidPlacement(eff, placing.id, placing.grass)
-        ;(placing.ghost.material as THREE.MeshBasicMaterial).color.setHex(placing.valid ? 0x37c97e : 0xec5b5b)
+        placing.planeMat.color.setHex(placing.valid ? 0x37c97e : 0xec5b5b)
+        placing.planeMat.opacity = placing.valid ? 0.22 : 0.34
       } else if (zoneMode) {
         const pc = parcelAt(pt.x, pt.y)
         if (pc) {
@@ -1009,7 +1072,7 @@ window.addEventListener('pointermove', e => {
           zoneMode.ghost.scale.set(x1 - x0 - 0.3, y1 - y0 - 0.3, 1)
           zoneMode.ghost.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0.06)
           zoneMode.valid = zoneMode.kind === 'land'
-            ? !state.owns(c, r) && state.parcelAdjacentToOwned(c, r) && state.money >= parcelCost(c, r)
+            ? !state.owns(c, r) && state.parcelAdjacentToOwned(c, r) && state.money >= parcelCost(c, r, state)
             : state.owns(c, r) && !state.isPaved(c, r) && state.money >= PAVE_COST
           ;(zoneMode.ghost.material as THREE.MeshBasicMaterial).color.setHex(zoneMode.valid ? 0x37c97e : 0xec5b5b)
         }

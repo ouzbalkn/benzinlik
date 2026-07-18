@@ -23,6 +23,38 @@ export interface BuildingCard {
   move?: { label: string; id: string }
 }
 
+/** ikon kutusu renkleri — her kalem kendi kimliğinde */
+const ICON_COLORS: Record<string, string> = {
+  land: '#27a05a', pave: '#7a8290', pump: '#d64545', sign: '#2f6fed', tank: '#5a6b7c',
+  airwater: '#1fa8bc', parking: '#2f6fed', market: '#e8862e', toilet: '#2f6fed', wash: '#2f9fd6',
+  selfwash: '#1fa8bc', oil: '#b08a3f', coffee: '#8a5a3c', restaurant: '#c9484f', truckpark: '#5a6b7c',
+  grid: '#e0a121', battery: '#27a05a', evcharger: '#1fa8bc', solar: '#e8862e', dieselgen: '#b08a3f', smr: '#d64545',
+  'clean-solar': '#2f9fd6', 'maint-smr': '#d64545', 'order-uranium': '#27a05a',
+}
+
+function sicon(id: string, symbol: string): string {
+  const c = ICON_COLORS[id] ?? (id.startsWith('fix-') ? '#d64545' : '#7a8290')
+  return `<div class="sicon" style="color:${c};background:${c}1c;border-color:${c}44">${icon(symbol)}</div>`
+}
+
+/** yerleştirilebilirlerin kapladığı kare boyutu (görsel bilgi) */
+const DIMS: Record<string, (s: GameState) => string> = {
+  market: s => (s.marketLevel === 0 ? '5×6' : '6×8'),
+  toilet: () => '3×4',
+  battery: () => '3×2',
+  solar: () => '5×7',
+  dieselgen: () => '2×2',
+  smr: () => '6×5',
+  wash: () => '5×5',
+  oil: () => '4×4',
+  coffee: () => '3×3',
+  restaurant: () => '6×6',
+  truckpark: () => '8×6',
+  airwater: () => '2×2',
+  parking: () => '6×4',
+  land: () => '12×14+',
+}
+
 /** inşaat sekmeleri */
 const CATEGORY_MAP: Record<string, string> = {
   land: 'arsa', pave: 'arsa',
@@ -277,7 +309,7 @@ export class UI {
           const cls = r.urgent ? 'shoprow urgent' : 'shoprow'
           const disabled = r.disabled || state.money < r.cost
           return `<div class="${cls}">
-            <div class="sicon">${icon(r.icon)}</div>
+            ${sicon(r.id, r.icon)}
             <div class="sinfo"><div class="st">${stripEmoji(r.title)}</div></div>
             <button class="btn sbuy ${r.urgent ? 'danger' : ''}" data-maint="${r.id}" ${disabled ? 'disabled' : ''}>₺${r.cost.toLocaleString('tr-TR')}</button></div>`
         }).join('')
@@ -294,10 +326,11 @@ export class UI {
         btn = `<button class="btn sbuy ${afford ? 'good' : ''}" data-buy="${r.id}" ${afford ? '' : 'disabled'}>₺${r.cost?.toLocaleString('tr-TR')}</button>`
       }
       const lock = r.status === 'locked' ? `<div class="slock">${stripEmoji(r.note)}</div>` : ''
+      const dims = DIMS[r.id] ? `<span class="stat-badge dim">${DIMS[r.id](state)}</span>` : ''
       return `<div class="${cls}">
-        <div class="sicon">${icon(r.icon)}</div>
+        ${sicon(r.id, r.icon)}
         <div class="sinfo">
-          <div class="st">${stripEmoji(r.title)} <span class="stat-badge">${stripEmoji(r.stat)}</span></div>
+          <div class="st">${stripEmoji(r.title)} <span class="stat-badge">${stripEmoji(r.stat)}</span>${dims}</div>
           <div class="sd">${stripEmoji(r.desc)}</div>${lock}
         </div>${btn}</div>`
     }).join('')
