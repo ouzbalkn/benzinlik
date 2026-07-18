@@ -364,6 +364,15 @@ function wrongFuel(car: Car) {
 
 // ---- EV şarj ----
 
+ui.onDismiss = car => {
+  if (car.phase !== 'atPump' || car.filling || car.filled > 0) return
+  state.addRep(-0.1)
+  car.showFeedback('😐')
+  ui.toast('Müşteri kibarca gönderildi.', '')
+  cars.releaseCar(car)
+  if (ui.activeCar === car) ui.selectCar(nextServableCar())
+}
+
 ui.onChargeEV = car => {
   if (car.phase !== 'atPump' || state.battery < car.demandKwh) return
   let kwh = car.demandKwh

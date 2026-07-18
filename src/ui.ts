@@ -71,6 +71,7 @@ export class UI {
   onNozzle: (car: Car, type: FuelType) => void = () => {}
   onStart: (car: Car, amount: number) => void = () => {}
   onChargeEV: (car: Car) => void = () => {}
+  onDismiss: (car: Car) => void = () => {}
   onOrderFuel: (f: FuelType) => void = () => {}
   onBuy: (id: string) => void = () => {}
   onMaint: (id: string) => void = () => {}
@@ -205,6 +206,9 @@ export class UI {
     this.chargeBtn.addEventListener('click', () => {
       if (this.activeCar?.kind === 'ev') this.onChargeEV(this.activeCar)
     })
+    el<HTMLButtonElement>('dismissbtn').addEventListener('click', () => {
+      if (this.activeCar) this.onDismiss(this.activeCar)
+    })
 
     // bina kartı
     el<HTMLButtonElement>('binfo-close').addEventListener('click', () => {
@@ -252,6 +256,7 @@ export class UI {
       return
     }
     this.panel.classList.add('show')
+    el<HTMLButtonElement>('dismissbtn').disabled = car.filling || car.filled > 0
 
     if (car.kind === 'ev') {
       this.fuelCtl.style.display = 'none'
