@@ -509,6 +509,7 @@ function buildVisual(id: string, pos?: THREE.Vector2) {
     case 'airwater': world.buildAirWater(pos); break
     case 'selfwash': world.buildSelfWash(pos); break
     case 'parking': world.buildParking(pos); break
+    case 'office': world.buildOffice(pos); break
   }
 }
 
@@ -530,6 +531,7 @@ const PLACEABLE: Record<string, (forMove: boolean) => Footprint> = {
   airwater: () => ({ w: 1.6, d: 2 }),
   selfwash: () => ({ w: 5.5, d: 7 }),
   parking: () => ({ w: 4.6, d: 3.2 }),
+  office: () => ({ w: 5, d: 5.5 }),
 }
 
 interface Rect { cx: number; cy: number; w: number; d: number }
@@ -595,6 +597,10 @@ function rebuildFromState() {
   if (state.hasAirWater) world.buildAirWater(pv('airwater'))
   if (state.hasSelfWash) world.buildSelfWash(pv('selfwash'))
   if (state.hasParking) world.buildParking(pv('parking'))
+  if (placedPos.office) {
+    world.removeBuildingGroup('office')
+    world.buildOffice(pv('office'))
+  }
   for (const [id, rot] of Object.entries(placedRot)) world.rotateBuilding(id, rot)
   world.setClosed(state.closed)
 }
@@ -683,16 +689,22 @@ function buildThumbSubject(id: string): THREE.Group | null {
     return g
   }
   if (id === 'pump') {
-    const i = Math.min(state.pumps, 3)
-    world.addPump(i)
-    const g = world.detachPreview(`pump-${i}`)
+    if (state.pumps >= 4) {
+      const ex = world.buildings.find(b => b.id.startsWith('pump-'))
+      if (ex) { const g = (ex.group as THREE.Group).clone(true); g.position.set(0, 0, 0); return g }
+    }
+    world.addPump(state.pumps)
+    const g = world.detachPreview(`pump-${state.pumps}`)
     if (g) world.scene.remove(g)
     return g
   }
   if (id === 'evcharger') {
-    const i = Math.min(state.evChargers, 3)
-    world.addEvCharger(i)
-    const g = world.detachPreview(`charger-${i}`)
+    if (state.evChargers >= 4) {
+      const ex = world.buildings.find(b => b.id.startsWith('charger-'))
+      if (ex) { const g = (ex.group as THREE.Group).clone(true); g.position.set(0, 0, 0); return g }
+    }
+    world.addEvCharger(state.evChargers)
+    const g = world.detachPreview(`charger-${state.evChargers}`)
     if (g) world.scene.remove(g)
     return g
   }
@@ -1367,6 +1379,18 @@ function refreshBuildingCard() {
   ui.showBuildingCard(card)
 }
 
+// ---- Düzenleme modu: tıkla-taşı ----
+let editMode = false
+const editBtn = document.getElementById('editbtn') as HTMLButtonElement
+editBtn.addEventListener('click', () => {
+  editMode = !editMode
+  editBtn.classList.toggle('danger', editMode)
+  cancelPlacement()
+  ui.toast(editMode
+    ? 'Düzenleme modu AÇIK: taşımak istediğin binaya tıkla (pompa, şarj ve tank sabittir)'
+    : 'Düzenleme modu kapandı.', '')
+})
+
 // ---- Girdi: sürükle-kaydır + tıkla-seç ----
 const raycaster = new THREE.Raycaster()
 const pointer = new THREE.Vector2()
@@ -1490,7 +1514,12 @@ function handleClick(e: PointerEvent) {
     let obj: THREE.Object3D | null = hits[0].object
     while (obj && !obj.userData.buildingId) obj = obj.parent
     if (obj?.userData.buildingId) {
-      selectedBuilding = obj.userData.buildingId as string
+      const bid = obj.userData.buildingId as string
+      if (editMode && bid in PLACEABLE) {
+        startPlacement(bid, true) // düzenleme: direkt taşıma
+        return
+      }
+      selectedBuilding = bid
       world.setSelected(selectedBuilding)
       refreshBuildingCard()
       return

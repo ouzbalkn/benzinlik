@@ -337,57 +337,7 @@ export class World {
     this.makeApron(APRON_IN_Y)
     this.makeApron(APRON_OUT_Y)
 
-    // ofis binası
-    const officeGroup = new THREE.Group()
-    let officeFx = 1.7 // cephe x'i (girişin oturacağı yüz)
-    if (this.statics?.office) {
-      const o = fitModel(this.statics.office, 4.4)
-      o.traverse(m => { m.castShadow = true })
-      officeGroup.add(o)
-      officeFx = new THREE.Box3().setFromObject(o).max.x
-    } else {
-      box(3.2, 4.2, 2.4, 0xdfd8c8, 0, 0, 1.2, officeGroup)
-      box(3.4, 4.4, 0.25, 0x9c5b3c, 0, 0, 2.5, officeGroup)
-    }
-    // zemin kat girişi: basamak + çerçeveli cam kapı + kırmızı saçak + yan camlar
-    box(0.55, 1.7, 0.1, 0xb8bec4, officeFx + 0.32, 0, 0.05, officeGroup) // alt basamak
-    box(0.34, 1.35, 0.2, 0xc7ccd1, officeFx + 0.2, 0, 0.1, officeGroup)  // üst basamak
-    box(0.1, 1.2, 1.7, 0x39424e, officeFx + 0.02, 0, 0.95, officeGroup)   // kapı çerçevesi
-    box(0.04, 0.95, 1.5, 0x9fb0b8, officeFx + 0.01, 0, 0.92, officeGroup)  // füme cam kapı (gömülü)
-    box(0.03, 0.06, 1.4, 0x39424e, officeFx + 0.05, 0, 0.92, officeGroup)  // kapı ortası çıta
-    // saçak + direkler
-    box(0.95, 1.9, 0.1, 0xd64545, officeFx + 0.42, 0, 1.98, officeGroup)
-    box(0.99, 1.94, 0.05, 0xb23434, officeFx + 0.42, 0, 2.05, officeGroup)
-    cyl(0.05, 1.95, 0x8f979e, officeFx + 0.82, -0.85, 0.98, 'z', officeGroup)
-    cyl(0.05, 1.95, 0x8f979e, officeFx + 0.82, 0.85, 0.98, 'z', officeGroup)
-    // zemin kat yan pencereleri: küçük, gömülü, füme — cephe sakinledi
-    for (const wy of [-1.45, 1.45]) {
-      box(0.06, 0.62, 0.72, 0x39424e, officeFx, wy, 1.05, officeGroup)
-      box(0.04, 0.5, 0.6, 0x9fb0b8, officeFx - 0.01, wy, 1.05, officeGroup)
-    }
-    // saçak üstü OFİS plakası
-    const officePlate = canvasPanel(1.0, 0.38, 220, 84, (ctx, w, h) => {
-      ctx.fillStyle = '#d64545'; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 14); ctx.fill()
-      ctx.fillStyle = '#fff'; ctx.font = '800 52px -apple-system, sans-serif'
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText('OFİS', w / 2, h / 2 + 2)
-    })
-    officePlate.position.set(officeFx + 0.9, 0, 2.28)
-    officeGroup.add(officePlate)
-    // kapı yanı yeşillikler
-    for (const by of [-1.2, 1.2]) {
-      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 1), lam(0x6fb35a))
-      bush.position.set(officeFx + 0.55, by, 0.26)
-      bush.castShadow = true
-      officeGroup.add(bush)
-      box(0.4, 0.4, 0.18, 0x9c5b3c, officeFx + 0.55, by, 0.09, officeGroup)
-    }
-    officeGroup.position.set(-5.0, 4.5, 0)
-    this.facadeLights(officeGroup, [[officeFx + 0.01, -0.9, 2.6], [officeFx + 0.01, 0.9, 2.6]])
-    s.add(officeGroup)
-    this.register('office', 'OFİS', officeGroup, 5.6)
-    cyl(0.22, 0.6, 0x3f6f56, -3.3, 6.8, 0.3, 'z', s)
-    this.placePlanter(-3.3, 2.6)
+    this.buildOffice()
 
     // ana yakıt tankı (küre) + borular
     this.tankGroup = new THREE.Group()
@@ -893,6 +843,61 @@ export class World {
   rotateBuilding(id: string, rot: number) {
     const b = this.buildings.find(x => x.id === id)
     if (b) (b.group as THREE.Group).rotation.z = rot * Math.PI / 2
+  }
+
+  /** ofis binası — taşınabilir (düzenleme modu) */
+  buildOffice(pos?: THREE.Vector2) {
+    const at = pos ?? new THREE.Vector2(-5.0, 4.5)
+    const officeGroup = new THREE.Group()
+    let officeFx = 1.7 // cephe x'i (girişin oturacağı yüz)
+    if (this.statics?.office) {
+      const o = fitModel(this.statics.office, 4.4)
+      o.traverse(m => { m.castShadow = true })
+      officeGroup.add(o)
+      officeFx = new THREE.Box3().setFromObject(o).max.x
+    } else {
+      box(3.2, 4.2, 2.4, 0xdfd8c8, 0, 0, 1.2, officeGroup)
+      box(3.4, 4.4, 0.25, 0x9c5b3c, 0, 0, 2.5, officeGroup)
+    }
+    // zemin kat girişi: basamak + çerçeveli cam kapı + kırmızı saçak + yan camlar
+    box(0.55, 1.7, 0.1, 0xb8bec4, officeFx + 0.32, 0, 0.05, officeGroup) // alt basamak
+    box(0.34, 1.35, 0.2, 0xc7ccd1, officeFx + 0.2, 0, 0.1, officeGroup)  // üst basamak
+    box(0.1, 1.2, 1.7, 0x39424e, officeFx + 0.02, 0, 0.95, officeGroup)   // kapı çerçevesi
+    box(0.04, 0.95, 1.5, 0x9fb0b8, officeFx + 0.01, 0, 0.92, officeGroup)  // füme cam kapı (gömülü)
+    box(0.03, 0.06, 1.4, 0x39424e, officeFx + 0.05, 0, 0.92, officeGroup)  // kapı ortası çıta
+    // saçak + direkler
+    box(0.95, 1.9, 0.1, 0xd64545, officeFx + 0.42, 0, 1.98, officeGroup)
+    box(0.99, 1.94, 0.05, 0xb23434, officeFx + 0.42, 0, 2.05, officeGroup)
+    cyl(0.05, 1.95, 0x8f979e, officeFx + 0.82, -0.85, 0.98, 'z', officeGroup)
+    cyl(0.05, 1.95, 0x8f979e, officeFx + 0.82, 0.85, 0.98, 'z', officeGroup)
+    // zemin kat yan pencereleri: küçük, gömülü, füme — cephe sakinledi
+    for (const wy of [-1.45, 1.45]) {
+      box(0.06, 0.62, 0.72, 0x39424e, officeFx, wy, 1.05, officeGroup)
+      box(0.04, 0.5, 0.6, 0x9fb0b8, officeFx - 0.01, wy, 1.05, officeGroup)
+    }
+    // saçak üstü OFİS plakası
+    const officePlate = canvasPanel(1.0, 0.38, 220, 84, (ctx, w, h) => {
+      ctx.fillStyle = '#d64545'; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 14); ctx.fill()
+      ctx.fillStyle = '#fff'; ctx.font = '800 52px -apple-system, sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText('OFİS', w / 2, h / 2 + 2)
+    })
+    officePlate.position.set(officeFx + 0.9, 0, 2.28)
+    officeGroup.add(officePlate)
+    // kapı yanı yeşillikler
+    for (const by of [-1.2, 1.2]) {
+      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 1), lam(0x6fb35a))
+      bush.position.set(officeFx + 0.55, by, 0.26)
+      bush.castShadow = true
+      officeGroup.add(bush)
+      box(0.4, 0.4, 0.18, 0x9c5b3c, officeFx + 0.55, by, 0.09, officeGroup)
+    }
+    officeGroup.position.set(at.x, at.y, 0)
+    this.facadeLights(officeGroup, [[officeFx + 0.01, -0.9, 2.6], [officeFx + 0.01, 0.9, 2.6]])
+    this.scene.add(officeGroup)
+    this.register('office', 'OFİS', officeGroup, 5.6)
+    cyl(0.22, 0.6, 0x3f6f56, 1.7, 2.3, 0.3, 'z', officeGroup)
+
   }
 
   /** kart görselleri için özel örnek modeller (build fonksiyonu olmayan kalemler) */
