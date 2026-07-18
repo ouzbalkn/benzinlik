@@ -344,15 +344,6 @@ export class World {
     s.add(this.tankGroup)
     this.buildTankCluster(0)
     this.register('tank', 'YAKIT TANKI', this.tankGroup, 3.8)
-    // yakıt hattı yeraltından gider — sadece rögar kapakları görünür
-    for (const [mx, my] of [[-4.2, -4.6], [-1.4, -3.4], [0.6, -2.8]] as const) {
-      const cover = new THREE.Mesh(new THREE.CircleGeometry(0.32, 18), lam(0x565e66))
-      cover.position.set(mx, my, 0.035)
-      s.add(cover)
-      const rim = new THREE.Mesh(new THREE.RingGeometry(0.26, 0.3, 18), lam(0x3d444b))
-      rim.position.set(mx, my, 0.04)
-      s.add(rim)
-    }
 
     // çevre
     this.placeTree(-9.5, -13, 1.2)
