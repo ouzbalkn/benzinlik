@@ -352,18 +352,18 @@ export class World {
     // zemin kat girişi: basamak + çerçeveli cam kapı + kırmızı saçak + yan camlar
     box(0.55, 1.7, 0.1, 0xb8bec4, officeFx + 0.32, 0, 0.05, officeGroup) // alt basamak
     box(0.34, 1.35, 0.2, 0xc7ccd1, officeFx + 0.2, 0, 0.1, officeGroup)  // üst basamak
-    box(0.1, 1.2, 1.7, 0x39424e, officeFx + 0.02, 0, 0.95, officeGroup)  // kapı çerçevesi
-    box(0.05, 0.95, 1.5, 0x7ec8e3, officeFx + 0.08, 0, 0.92, officeGroup) // cam kapı
-    box(0.03, 0.06, 1.4, 0x39424e, officeFx + 0.11, 0, 0.92, officeGroup) // kapı ortası çıta
+    box(0.1, 1.2, 1.7, 0x39424e, officeFx + 0.02, 0, 0.95, officeGroup)   // kapı çerçevesi
+    box(0.04, 0.95, 1.5, 0x9fb0b8, officeFx + 0.01, 0, 0.92, officeGroup)  // füme cam kapı (gömülü)
+    box(0.03, 0.06, 1.4, 0x39424e, officeFx + 0.05, 0, 0.92, officeGroup)  // kapı ortası çıta
     // saçak + direkler
     box(0.95, 1.9, 0.1, 0xd64545, officeFx + 0.42, 0, 1.98, officeGroup)
     box(0.99, 1.94, 0.05, 0xb23434, officeFx + 0.42, 0, 2.05, officeGroup)
     cyl(0.05, 1.95, 0x8f979e, officeFx + 0.82, -0.85, 0.98, 'z', officeGroup)
     cyl(0.05, 1.95, 0x8f979e, officeFx + 0.82, 0.85, 0.98, 'z', officeGroup)
-    // zemin kat yan vitrinleri
-    for (const wy of [-1.35, 1.35]) {
-      box(0.07, 0.95, 1.05, 0x39424e, officeFx + 0.01, wy, 1.0, officeGroup)
-      box(0.05, 0.8, 0.9, 0x7ec8e3, officeFx + 0.05, wy, 1.0, officeGroup)
+    // zemin kat yan pencereleri: küçük, gömülü, füme — cephe sakinledi
+    for (const wy of [-1.45, 1.45]) {
+      box(0.06, 0.62, 0.72, 0x39424e, officeFx, wy, 1.05, officeGroup)
+      box(0.04, 0.5, 0.6, 0x9fb0b8, officeFx - 0.01, wy, 1.05, officeGroup)
     }
     // saçak üstü OFİS plakası
     const officePlate = canvasPanel(1.0, 0.38, 220, 84, (ctx, w, h) => {
