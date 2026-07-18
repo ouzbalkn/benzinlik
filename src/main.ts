@@ -9,6 +9,7 @@ import {
 } from './state'
 import { loadModels, loadStatics } from './models'
 import { audio } from './audio'
+import * as auth from './auth'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -65,6 +66,18 @@ updateCamera()
 // tarayıcı autoplay kuralı: ilk dokunuşta ses sistemini aç
 window.addEventListener('pointerdown', () => audio.ensure(), { once: true })
 
+// sekme arka plandayken önemli olayları bildir (izin verildiyse) + başlıkta işaret
+function notifyIfHidden(text: string) {
+  if (!document.hidden) return
+  document.title = `(!) ${text.slice(0, 40)}`
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification('Benzinlik', { body: text }) } catch { /* mobil kısıt */ }
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) document.title = `${world?.stationName ?? 'Benzinlik'} — Benzinlik`
+})
+
 // Kenney modelleri (yüklenemezse prosedürele düşer)
 const [modelLib, staticLib] = await Promise.all([loadModels(), loadStatics()])
 
@@ -93,7 +106,8 @@ const cars = new CarManager(world.scene, modelLib, {
   parkSpots: () => world.getParkingSpots(),
   onCarReady: car => { if (!ui.activeCar) ui.selectCar(car) },
   onCarLost: car => {
-    ui.toast('😡 Müşteri beklemekten sıkıldı ve gitti!', 'bad')
+    ui.toast('Müşteri beklemekten sıkıldı ve gitti!', 'bad', true)
+    audio.miss()
     state.addRep(-0.2)
     if (ui.activeCar === car) ui.selectCar(nextServableCar())
   },
@@ -184,8 +198,8 @@ function vehicleServices(car: Car): number {
   let d = 0
   if (car.wantsWash && state.hasWash) {
     const m = Math.round(60 + Math.random() * 60)
-    state.money += m; d += 0.2
-    ui.toast(`🚿 Araç yıkandı: +₺${m}`, 'good')
+    state.addPending('wash', m, 'Oto yıkama'); d += 0.2
+    ui.toast(`Araç yıkandı: ₺${m} kumbarada`, 'good')
   }
   if (car.wantsOil && state.hasOil) {
     const m = Math.round(150 + Math.random() * 100)
@@ -194,8 +208,7 @@ function vehicleServices(car: Car): number {
   }
   if (car.wantsAir && state.hasAirWater) {
     const m = Math.round(10 + Math.random() * 10)
-    state.money += m; d += 0.1
-    ui.toast(`💨 Hava-su: +₺${m}`, 'good')
+    state.addPending('airwater', m, 'Hava-su'); d += 0.1
   }
   return d
 }
@@ -466,22 +479,37 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
 // ---- Kayıt sistemi ----
 const SAVE_KEY = 'benzinlik-save-v1'
 
+let lastRemotePush = 0
+
+function savePayload() {
+  return { s: serializeState(state), placedPos, placedRot, placedRects }
+}
+
 function persist() {
   if (isFullMode) return
+  const payload = savePayload()
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ s: serializeState(state), placedPos, placedRot, placedRects }))
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload))
   } catch { /* depolama dolu vs. */ }
+  // giriş yapıldıysa buluta da it (10 sn'de bir)
+  if (auth.loggedIn() && Date.now() - lastRemotePush > 10_000) {
+    lastRemotePush = Date.now()
+    auth.pushSave(payload).catch(() => {})
+  }
+}
+
+function applySaveData(d: Record<string, unknown>) {
+  hydrateState(state, (d.s ?? {}) as Record<string, unknown>)
+  Object.assign(placedPos, (d.placedPos ?? {}) as Record<string, [number, number]>)
+  Object.assign(placedRot, (d.placedRot ?? {}) as Record<string, number>)
+  if (Array.isArray(d.placedRects)) placedRects.push(...(d.placedRects as (Rect & { id: string })[]))
 }
 
 function loadSave(): boolean {
   const raw = localStorage.getItem(SAVE_KEY)
   if (!raw) return false
   try {
-    const d = JSON.parse(raw)
-    hydrateState(state, d.s ?? {})
-    Object.assign(placedPos, d.placedPos ?? {})
-    Object.assign(placedRot, d.placedRot ?? {})
-    if (Array.isArray(d.placedRects)) placedRects.push(...d.placedRects)
+    applySaveData(JSON.parse(raw))
     return true
   } catch {
     return false
@@ -863,9 +891,50 @@ function buyToast(id: string) {
 
 // 🧪 FULL / vitrin modu: ?full=1 ile her şey kurulu başlar
 const isFullMode = new URLSearchParams(location.search).has('full')
-if (!isFullMode && loadSave()) {
-  rebuildFromState()
-  ui.toast(`💾 Kayıt yüklendi — Gün ${state.day}, hoş geldin!`, 'good')
+let saveLoaded = false
+if (!isFullMode && auth.loggedIn()) {
+  try {
+    const remote = await auth.pullSave()
+    if (remote) {
+      applySaveData(remote as Record<string, unknown>)
+      saveLoaded = true
+      ui.toast(`Bulut kaydı yüklendi — Gün ${state.day} (${auth.currentEmail()})`, 'good', true)
+    }
+  } catch {
+    ui.toast('Buluta ulaşılamadı, yerel kayıt kullanılıyor.', 'bad', true)
+  }
+}
+if (!saveLoaded && !isFullMode && loadSave()) {
+  saveLoaded = true
+  ui.toast(`Kayıt yüklendi — Gün ${state.day}, hoş geldin!`, 'good', true)
+}
+if (saveLoaded) rebuildFromState()
+ui.syncAccount(auth.currentEmail())
+
+ui.onLogin = async (email, pass) => {
+  try {
+    await auth.login(email, pass)
+    const remote = await auth.pullSave().catch(() => null)
+    if (!remote) await auth.pushSave(savePayload()).catch(() => {})
+    location.reload()
+  } catch (err) {
+    ui.toast((err as Error).message, 'bad')
+  }
+}
+ui.onRegister = async (email, pass) => {
+  try {
+    await auth.register(email, pass)
+    await auth.pushSave(savePayload()).catch(() => {})
+    ui.toast('Hesap oluşturuldu — kaydın artık bulutta!', 'good')
+    ui.syncAccount(auth.currentEmail())
+  } catch (err) {
+    ui.toast((err as Error).message, 'bad')
+  }
+}
+ui.onLogout = () => {
+  auth.logout()
+  ui.syncAccount(null)
+  ui.toast('Çıkış yapıldı — misafir modundasın.', '')
 }
 if (isFullMode) {
   for (const key of ['0,0', '0,2', '1,1']) {
@@ -1240,6 +1309,16 @@ function handleClick(e: PointerEvent) {
   // 2) binalar (uyarı pill'i → direkt tamir; bina → bilgi kartı)
   const hits = raycaster.intersectObjects(world.buildings.map(b => b.group), true)
   if (hits.length > 0) {
+    const cashFor = hits.find(h => h.object.userData.cashFor)?.object.userData.cashFor
+    if (cashFor) {
+      const amt = state.collectPending(cashFor)
+      if (amt > 0) {
+        audio.cash()
+        ui.toast(`+₺${amt} toplandı!`, 'good', true)
+        persist()
+      }
+      return
+    }
     const warnFor = hits.find(h => h.object.userData.warnFor)?.object.userData.warnFor
     if (warnFor) {
       ui.onMaint(warnFor)
@@ -1287,7 +1366,15 @@ function frame() {
   state.tick(dt)
   cars.update(dt)
 
-  for (const msg of state.events.splice(0)) ui.toast(msg, 'bad')
+  for (const msg of state.events.splice(0)) {
+    if (msg.includes('Başarım')) {
+      ui.toast(msg, 'good', true)
+      audio.achieve()
+    } else {
+      ui.toast(msg, 'bad')
+      if (msg.includes('KRİTİK') || msg.includes('doldu')) notifyIfHidden(msg)
+    }
+  }
 
   if (state.exploded) {
     exploding = true
@@ -1335,6 +1422,9 @@ function frame() {
     })
   }
   world.syncWarnings(warns)
+  const cashMap = new Map<string, number>()
+  for (const [id, amt] of Object.entries(state.pendingCash)) if (amt >= 1) cashMap.set(id, amt)
+  world.syncCash(cashMap)
 
   // seçili bina kartını canlı tut
   if (selectedBuilding && ui.buildingCardVisible) {

@@ -196,6 +196,10 @@
               color: var(--ink); padding: 10px 12px; font-size: 15px; font-weight: 800; outline: none;
               min-width: 0; text-transform: uppercase; font-family: var(--font); }
     #stname:focus { border-color: var(--blue); }
+    .accinput { background: #fff; border: 1.5px solid var(--edge); border-radius: var(--r-md);
+                color: var(--ink); padding: 10px 12px; font-size: 13.5px; font-weight: 700; outline: none;
+                min-width: 0; font-family: var(--font); }
+    .accinput:focus { border-color: var(--blue); }
 
     /* ---------- Toast ---------- */
     #toasts { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); z-index: 40;
@@ -382,6 +386,23 @@
         <div class="row">
           <button id="musicbtn" class="btn" style="flex:1; justify-content:center">Müzik: Açık</button>
           <button id="sfxbtn" class="btn" style="flex:1; justify-content:center">Efektler: Açık</button>
+        </div>
+        <label style="margin-top:12px">Bildirimler (sekme kapalıyken tanker/kumbara haberi)</label>
+        <div class="row">
+          <button id="notifbtn" class="btn" style="flex:1; justify-content:center">Bildirimlere İzin Ver</button>
+        </div>
+        <label style="margin-top:12px">Hesap (kaydın bulutta saklanır)</label>
+        <div id="accbox">
+          <div class="sd" id="accstatus" style="margin:0 6px 6px">Giriş yapılmadı — misafir modundasın.</div>
+          <div class="row">
+            <input id="accemail" type="email" placeholder="e-posta" style="flex:1.4" class="accinput" />
+            <input id="accpass" type="password" placeholder="şifre" style="flex:1" class="accinput" />
+          </div>
+          <div class="row">
+            <button id="loginbtn" class="btn good" style="flex:1; justify-content:center">Giriş Yap</button>
+            <button id="registerbtn" class="btn primary" style="flex:1; justify-content:center">Kayıt Ol</button>
+            <button id="logoutbtn" class="btn" style="flex:1; justify-content:center; display:none">Çıkış</button>
+          </div>
         </div>
         <label style="margin-top:12px">Oyun kaydı otomatik tutulur (her 5 sn)</label>
         <div class="row">

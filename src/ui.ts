@@ -80,6 +80,9 @@ export class UI {
   onMove: (id: string) => void = () => {}
   onReset: () => void = () => {}
   onToggleClosed: () => void = () => {}
+  onLogin: (email: string, pass: string) => void = () => {}
+  onRegister: (email: string, pass: string) => void = () => {}
+  onLogout: () => void = () => {}
   batteryKwh: () => number = () => 0
   /** gerçek 3D modelin PNG render'ı (main bağlar) */
   getThumb: (id: string) => string | null = () => null
@@ -184,6 +187,24 @@ export class UI {
     syncAudioLabels()
     musicBtn.addEventListener('click', () => { audio.toggleMusic(); syncAudioLabels() })
     sfxBtn.addEventListener('click', () => { audio.toggleSfx(); syncAudioLabels() })
+    const notifBtn = el<HTMLButtonElement>('notifbtn')
+    const syncNotif = () => {
+      const p = 'Notification' in window ? Notification.permission : 'unsupported'
+      notifBtn.textContent = p === 'granted' ? 'Bildirimler: Açık' : p === 'denied' ? 'Bildirimler: Engelli' : 'Bildirimlere İzin Ver'
+      notifBtn.disabled = p === 'granted' || p === 'denied' || p === 'unsupported'
+    }
+    syncNotif()
+    notifBtn.addEventListener('click', async () => {
+      if ('Notification' in window) await Notification.requestPermission()
+      syncNotif()
+    })
+
+    // hesap
+    const accEmail = el<HTMLInputElement>('accemail')
+    const accPass = el<HTMLInputElement>('accpass')
+    el<HTMLButtonElement>('loginbtn').addEventListener('click', () => this.onLogin(accEmail.value, accPass.value))
+    el<HTMLButtonElement>('registerbtn').addEventListener('click', () => this.onRegister(accEmail.value, accPass.value))
+    el<HTMLButtonElement>('logoutbtn').addEventListener('click', () => this.onLogout())
 
     // servis paneli
     this.nozBenzin.addEventListener('click', () => this.pickNozzle('benzin'))
@@ -318,6 +339,18 @@ export class UI {
     this.infoCard.classList.add('show')
   }
 
+  /** hesap durumunu ayarlar panelinde göster */
+  syncAccount(email: string | null) {
+    el<HTMLDivElement>('accstatus').textContent = email
+      ? `Giriş yapıldı: ${email} — kaydın buluta senkronlanıyor.`
+      : 'Giriş yapılmadı — misafir modundasın (kayıt sadece bu tarayıcıda).'
+    el<HTMLInputElement>('accemail').style.display = email ? 'none' : 'block'
+    el<HTMLInputElement>('accpass').style.display = email ? 'none' : 'block'
+    el<HTMLButtonElement>('loginbtn').style.display = email ? 'none' : 'flex'
+    el<HTMLButtonElement>('registerbtn').style.display = email ? 'none' : 'flex'
+    el<HTMLButtonElement>('logoutbtn').style.display = email ? 'flex' : 'none'
+  }
+
   hideBuildingCard() {
     this.infoCard.classList.remove('show')
     this.currentAction = null
@@ -435,9 +468,11 @@ export class UI {
     }
   }
 
-  toast(msg: string, kind: 'good' | 'bad' | '' = '') {
-    if (kind === 'good') audio.cash()
-    else if (kind === 'bad') audio.bad()
+  toast(msg: string, kind: 'good' | 'bad' | '' = '', silent = false) {
+    if (!silent) {
+      if (kind === 'good') audio.cash()
+      else if (kind === 'bad') audio.bad()
+    }
     const box = el<HTMLDivElement>('toasts')
     while (box.children.length >= 4) box.firstElementChild?.remove()
     const t = document.createElement('div')

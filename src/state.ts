@@ -107,6 +107,8 @@ export class GameState {
   hasParking = false
   /** istasyon kapalı: yeni müşteri girmez, itibar etkilenmez (bakım molası) */
   closed = false
+  /** jeton mantığı: self servis tesislerin üstünde biriken para (tıkla-topla) */
+  pendingCash: Record<string, number> = {}
   private truckTimer = 45
   private selfWashTimer = 30
 
@@ -229,8 +231,7 @@ export class GameState {
       if (this.truckTimer <= 0) {
         this.truckTimer = 35 + Math.random() * 20
         const m = 90 + Math.floor(Math.random() * 70)
-        this.money += m
-        this.events.push(`🚛 Tır parkı geliri: +₺${m}`)
+        this.addPending('truckpark', m, 'Tır parkı')
       }
     }
     if (this.hasSelfWash) {
@@ -238,8 +239,7 @@ export class GameState {
       if (this.selfWashTimer <= 0) {
         this.selfWashTimer = 25 + Math.random() * 20
         const m = 30 + Math.floor(Math.random() * 30)
-        this.money += m
-        this.events.push(`🧽 Self yıkama: köpük/su satışı +₺${m}`)
+        this.addPending('selfwash', m, 'Self yıkama')
       }
     }
 
@@ -293,6 +293,25 @@ export class GameState {
 
   deliverFuel(f: FuelType) {
     this.tanks[f] = this.tankCapacity
+  }
+
+  /** tesise para biriktir (kumbara dolarsa haber ver) */
+  addPending(id: string, amt: number, name: string) {
+    const cap = 600
+    const cur = this.pendingCash[id] ?? 0
+    this.pendingCash[id] = Math.min(cap, cur + amt)
+    if (cur < cap && this.pendingCash[id] >= cap) {
+      this.events.push(`${name} kumbarası doldu — üstüne tıklayıp topla!`)
+    }
+  }
+
+  collectPending(id: string): number {
+    const amt = Math.round(this.pendingCash[id] ?? 0)
+    if (amt > 0) {
+      this.money += amt
+      delete this.pendingCash[id]
+    }
+    return amt
   }
 
   addRep(d: number) {
@@ -471,6 +490,7 @@ export function serializeState(s: GameState): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const f of SAVE_FIELDS) out[f] = (s as any)[f]
   out.tanks = { ...s.tanks }
+  out.pendingCash = { ...s.pendingCash }
   out.ownedParcels = [...s.ownedParcels]
   out.pavedParcels = [...s.pavedParcels]
   out.achievements = [...s.achievements]
@@ -482,6 +502,7 @@ export function hydrateState(s: GameState, data: Record<string, unknown>) {
     if (f in data) (s as any)[f] = data[f]
   }
   if (data.tanks && typeof data.tanks === 'object') Object.assign(s.tanks, data.tanks)
+  if (data.pendingCash && typeof data.pendingCash === 'object') s.pendingCash = { ...(data.pendingCash as Record<string, number>) }
   if (Array.isArray(data.ownedParcels)) s.ownedParcels = new Set(data.ownedParcels as string[])
   if (Array.isArray(data.pavedParcels)) s.pavedParcels = new Set(data.pavedParcels as string[])
   if (Array.isArray(data.achievements)) s.achievements = new Set(data.achievements as string[])

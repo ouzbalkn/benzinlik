@@ -57,8 +57,22 @@ class AudioMan {
 
   bad() {
     if (!this.canSfx()) return
-    this.tone(180, 0.2, 'sawtooth', 0.1)
-    this.tone(140, 0.25, 'sawtooth', 0.09, 0.08)
+    this.tone(180, 0.16, 'sawtooth', 0.055)
+    this.tone(140, 0.2, 'sawtooth', 0.05, 0.07)
+  }
+
+  /** kaçan müşteri: sinir bozmayan, kısık "of ya" iniltisi */
+  miss() {
+    if (!this.canSfx()) return
+    this.tone(330, 0.12, 'sine', 0.05)
+    this.tone(262, 0.18, 'sine', 0.045, 0.1)
+  }
+
+  /** başarım fanfarı */
+  achieve() {
+    if (!this.canSfx()) return
+    const notes = [523.3, 659.3, 784.0, 1046.5]
+    notes.forEach((n, i) => this.tone(n, 0.28, 'triangle', 0.12, i * 0.09))
   }
 
   build() {
@@ -87,31 +101,65 @@ class AudioMan {
     src.start(t0)
   }
 
-  // ---- hafif arka plan melodisi ----
+  // ---- tempolu, neşeli arka plan loop'u (120 BPM, C majör I-V-vi-IV) ----
+  private nextStep = 0
+  private nextTime = 0
+
+  private hat(when: number, vol: number) {
+    if (!this.ctx || !this.musicGain) return
+    const len = Math.floor(this.ctx.sampleRate * 0.05)
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len)
+    const src = this.ctx.createBufferSource()
+    src.buffer = buf
+    const hp = this.ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 6000
+    const g = this.ctx.createGain()
+    g.gain.value = vol
+    src.connect(hp); hp.connect(g); g.connect(this.musicGain)
+    src.start(when)
+  }
+
   private startMusic() {
     if (!this.ctx || this.musicTimer !== null) return
-    const CHORDS = [
-      [261.6, 329.6, 392.0],  // C
-      [220.0, 261.6, 329.6],  // Am
-      [174.6, 220.0, 261.6],  // F
-      [196.0, 246.9, 293.7],  // G
+    const stepDur = 60 / 120 / 2 // 8'lik nota
+    // akor kökleri (bas): C2 G2 A2 F2 — her akor 1 ölçü (8 adım)
+    const ROOTS = [65.4, 98.0, 110.0, 87.3]
+    const st = (root: number, semi: number) => root * Math.pow(2, semi / 12)
+    // zıplayan bas kalıbı (yarım oktav oyunları) + neşeli melodi motifi (akora göre yarıton ofsetleri)
+    const BASS_PAT = [0, 12, 7, 12, 0, 12, 7, 10]
+    const LEAD_PATS = [
+      [24, 28, 31, 36, 31, 28, 24, 28],
+      [24, 31, 28, 24, 36, 31, 28, 26],
     ]
-    const PENTA = [523.3, 587.3, 659.3, 784.0, 880.0]
-    const step = () => {
+    this.nextTime = this.ctx.currentTime + 0.1
+    this.nextStep = 0
+    const tick = () => {
       if (!this.ctx || !this.musicGain) return
-      const chord = CHORDS[this.bar % CHORDS.length]
-      for (const f of chord) this.tone(f / 2, 4.4, 'triangle', 0.035, 0.05, this.musicGain)
-      // seyrek tatlı melodi notaları
-      for (let k = 0; k < 4; k++) {
-        if (Math.random() < 0.55) {
-          const n = PENTA[Math.floor(Math.random() * PENTA.length)]
-          this.tone(n, 0.5, 'sine', 0.03, 0.3 + k * 1.1, this.musicGain)
+      while (this.nextTime < this.ctx.currentTime + 0.35) {
+        const step = this.nextStep % 8
+        const bar = Math.floor(this.nextStep / 8)
+        const root = ROOTS[bar % 4]
+        const when = this.nextTime - this.ctx.currentTime
+        // bas: her 8'likte kısa tok vuruş
+        this.tone(st(root, BASS_PAT[step]), 0.16, 'triangle', 0.075, when, this.musicGain!)
+        // hi-hat: off-beat tıkırtısı
+        if (step % 2 === 1) this.hat(this.nextTime, 0.018)
+        // melodi: her ölçüde motif, 2 ölçüde bir varyasyon; 4. barda nefes
+        if (bar % 4 !== 3 || step < 4) {
+          const pat = LEAD_PATS[bar % 2]
+          if (step % 2 === 0 || (bar + step) % 3 === 0) {
+            this.tone(st(root, pat[step]), 0.22, 'square', 0.028, when, this.musicGain!)
+          }
         }
+        this.nextTime += stepDur
+        this.nextStep++
       }
-      this.bar++
     }
-    step()
-    this.musicTimer = window.setInterval(step, 4600)
+    tick()
+    this.musicTimer = window.setInterval(tick, 120)
   }
 
   toggleMusic(): boolean {

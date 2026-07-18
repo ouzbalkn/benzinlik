@@ -89,6 +89,37 @@ function labelSprite(text: string): THREE.Sprite {
   return sp
 }
 
+/** sarı para rozeti — tıklanınca kasaya toplanır */
+function cashSprite(text: string, id: string): THREE.Sprite {
+  const c = document.createElement('canvas')
+  c.width = 320; c.height = 104
+  const ctx = c.getContext('2d')!
+  ctx.font = '800 52px -apple-system, sans-serif'
+  const w = ctx.measureText(text).width + 92
+  const x0 = (320 - w) / 2
+  ctx.fillStyle = '#e8b62e'
+  ctx.beginPath(); ctx.roundRect(x0, 10, w, 84, 42); ctx.fill()
+  ctx.strokeStyle = '#a8791a'; ctx.lineWidth = 6; ctx.stroke()
+  // jeton
+  ctx.fillStyle = '#f7dd8a'
+  ctx.beginPath(); ctx.arc(x0 + 42, 52, 26, 0, 7); ctx.fill()
+  ctx.strokeStyle = '#a8791a'; ctx.lineWidth = 5; ctx.stroke()
+  ctx.fillStyle = '#7a5510'
+  ctx.font = '800 34px -apple-system, sans-serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText('₺', x0 + 42, 54)
+  ctx.fillStyle = '#3a2c05'
+  ctx.font = '800 52px -apple-system, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.fillText(text, x0 + 76, 55)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }))
+  sp.scale.set(2.3, 0.75, 1)
+  sp.userData.cashFor = id
+  return sp
+}
+
 /** kırmızı uyarı pill'i — tıklanınca tamir/bakım yapılır */
 function warnSprite(text: string, maintId: string): THREE.Sprite {
   const c = document.createElement('canvas')
@@ -194,6 +225,8 @@ export interface Building {
   label: THREE.Sprite
   warn: THREE.Sprite | null
   warnText: string | null
+  cash: THREE.Sprite | null
+  cashText: string | null
   labelZ: number
 }
 
@@ -509,7 +542,7 @@ export class World {
     label.visible = false // isim sadece bina seçilince görünür
     group.add(label)
     group.userData.buildingId = id
-    this.buildings.push({ id, name, group, label, warn: null, warnText: null, labelZ })
+    this.buildings.push({ id, name, group, label, warn: null, warnText: null, cash: null, cashText: null, labelZ })
   }
 
   /** seçili binanın isim etiketini gösterir, diğerlerini gizler */
@@ -561,6 +594,25 @@ export class World {
 
   private unregister(id: string) {
     this.buildings = this.buildings.filter(b => b.id !== id)
+  }
+
+  /** kumbara rozetleri: id → tutar; tıklanınca toplanır */
+  syncCash(list: Map<string, number>) {
+    for (const b of this.buildings) {
+      const amt = list.get(b.id)
+      const text = amt ? `₺${Math.round(amt)}` : null
+      if (text && b.cashText !== text) {
+        if (b.cash) b.group.remove(b.cash)
+        b.cash = cashSprite(text, b.id)
+        b.cash.position.z = b.labelZ + 0.85
+        b.group.add(b.cash)
+        b.cashText = text
+      } else if (!text && b.cash) {
+        b.group.remove(b.cash)
+        b.cash = null
+        b.cashText = null
+      }
+    }
   }
 
   /** main her karede çağırır: id → uyarı metni (tıklanınca maintId tetiklenir) */
