@@ -511,8 +511,6 @@ const placedPos: Record<string, [number, number]> = {}
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
 
 // ---- Kayıt sistemi ----
-// yerel kayıt HESABA özel: farklı hesaplar birbirinin dünyasını asla görmez
-const SAVE_KEY = 'benzinlik-save-v1:' + (auth.currentEmail() ?? 'guest')
 
 let lastRemotePush = 0
 
@@ -522,14 +520,10 @@ function savePayload() {
 
 function persist() {
   if (isFullMode) return
-  const payload = savePayload()
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(payload))
-  } catch { /* depolama dolu vs. */ }
-  // giriş yapıldıysa buluta da it (10 sn'de bir)
-  if (auth.loggedIn() && Date.now() - lastRemotePush > 10_000) {
+  // tek gerçek kaynak SQL: yerel kopya tutulmaz, eski veri asla hortlamaz
+  if (auth.loggedIn() && Date.now() - lastRemotePush > 5_000) {
     lastRemotePush = Date.now()
-    auth.pushSave(payload).catch(() => {})
+    auth.pushSave(savePayload()).catch(() => {})
   }
 }
 
@@ -541,17 +535,6 @@ function applySaveData(d: Record<string, unknown>) {
   Object.assign(placedPos, (d.placedPos ?? {}) as Record<string, [number, number]>)
   Object.assign(placedRot, (d.placedRot ?? {}) as Record<string, number>)
   if (Array.isArray(d.placedRects)) placedRects.push(...(d.placedRects as (Rect & { id: string })[]))
-}
-
-function loadSave(): boolean {
-  const raw = localStorage.getItem(SAVE_KEY)
-  if (!raw) return false
-  try {
-    applySaveData(JSON.parse(raw))
-    return true
-  } catch {
-    return false
-  }
 }
 
 /** kayıttan gelen state'e göre sahneyi yeniden kurar */
@@ -939,11 +922,22 @@ if (!isFullMode && auth.loggedIn()) {
     ui.toast('Buluta ulaşılamadı, yerel kayıt kullanılıyor.', 'bad', true)
   }
 }
-if (!saveLoaded && !isFullMode && loadSave()) {
-  saveLoaded = true
-  ui.toast(`Kayıt yüklendi — Gün ${state.day}, hoş geldin!`, 'good', true)
-}
 if (saveLoaded) rebuildFromState()
+else if (!isFullMode) ui.toast('Sıfırdan başlıyorsun — hayırlı olsun patron!', 'good', true)
+// eski yerel kayıt kalıntılarını temizle (artık her şey SQL'de)
+for (const key of Object.keys(localStorage)) {
+  if (key.startsWith('benzinlik-save-v1')) localStorage.removeItem(key)
+}
+// sekme kapanırken son durumu buluta yaz
+window.addEventListener('pagehide', () => {
+  if (isFullMode || !auth.loggedIn()) return
+  fetch('/api/save', {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'content-type': 'application/json', 'x-auth': localStorage.getItem('benzinlik-token') ?? '' },
+    body: JSON.stringify({ save: savePayload() }),
+  }).catch(() => {})
+})
 ui.syncAccount(auth.currentEmail())
 
 // ---- Zorunlu giriş kapısı: hesap yoksa oyun oynanmaz ----
@@ -1065,8 +1059,6 @@ ui.onCardClose = () => {
 }
 
 ui.onReset = async () => {
-  localStorage.removeItem(SAVE_KEY)
-  // buluttaki kaydı da sıfırla — yoksa yenileyince eski harita geri gelir
   if (auth.loggedIn()) await auth.pushSave(null).catch(() => {})
   location.reload()
 }
@@ -1470,8 +1462,7 @@ function frame() {
 
   if (state.exploded) {
     exploding = true
-    localStorage.removeItem(SAVE_KEY) // her şey sıfırlanır (bulut dahil)
-    if (auth.loggedIn()) auth.pushSave(null).catch(() => {})
+    if (auth.loggedIn()) auth.pushSave(null).catch(() => {}) // her şey sıfırlanır (SQL'de)
     audio.boom()
     ui.showBoom()
     setTimeout(() => location.reload(), 3500)
