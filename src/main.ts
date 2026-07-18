@@ -132,7 +132,7 @@ ui.tankerStatus = () => {
     if (active) {
       if (active.t.unloading) parts.push(`${FUEL_LABEL[f]} · boşaltıyor`)
       else {
-        const d = active.t.group.position.distanceTo(new THREE.Vector3(TANK_POS.x, TANK_POS.y, 0))
+        const d = active.t.group.position.distanceTo(new THREE.Vector3(world.tankAnchor.x, world.tankAnchor.y, 0))
         parts.push(`${FUEL_LABEL[f]} · ${Math.max(1, Math.round(d))}m`)
       }
     } else if (state.orders[f].pending) {
@@ -156,12 +156,14 @@ const cars = new CarManager(world.scene, modelLib, {
   pumpCount: () => state.pumps,
   evCount: () => state.evChargers,
   entryChance: () => state.entryChance(),
-  evShare: () => (state.evChargers > 0 ? Math.min(0.5, 0.15 + 0.09 * state.evChargers) : 0),
+  evShare: () => (state.evChargers > 0 ? Math.min(0.5, 0.15 + 0.09 * state.evChargers) * state.evPriceFactor() : 0),
   isPumpBroken: i => state.brokenPumps.has(i),
   isChargerBroken: i => state.brokenChargers.has(i),
   parkSpots: () => world.getParkingSpots(),
   extraObstacles: () => tankers.map(x => x.t.group.position),
   prices: () => state.prices,
+  pumpSlot: i => world.pumpSlots[i],
+  evSlot: i => world.evSlots[i],
   onCarReady: car => { if (!ui.activeCar) ui.selectCar(car) },
   onCarLost: car => {
     ui.toast('Müşteri beklemekten sıkıldı ve gitti!', 'bad', true)
@@ -179,10 +181,12 @@ function nextServableCar(): Car | null {
 const hoses = new Map<Car, THREE.Group>()
 
 function buildHose(car: Car): THREE.Group {
-  const y = car.slotIndex >= 0 ? PUMP_SLOTS_POS[car.slotIndex].y : car.group.position.y
-  const start = new THREE.Vector3(0.3, y + 0.3, 1.3)
-  const mid = new THREE.Vector3(0.85, y - 0.05, 0.5)
-  const end = new THREE.Vector3(1.22, y - 0.35, 0.62)
+  const slot = car.slotIndex >= 0 ? world.pumpSlots[car.slotIndex] : car.group.position
+  const bx = slot.x - 1.8
+  const y = slot.y
+  const start = new THREE.Vector3(bx + 0.3, y + 0.3, 1.3)
+  const mid = new THREE.Vector3(bx + 0.85, y - 0.05, 0.5)
+  const end = new THREE.Vector3(bx + 1.22, y - 0.35, 0.62)
   const curve = new THREE.QuadraticBezierCurve3(start, mid, end)
   const g = new THREE.Group()
   const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.045, 8),
@@ -466,9 +470,17 @@ ui.onDismiss = car => {
 }
 
 ui.onChargeEV = car => {
-  if (car.phase !== 'atPump' || state.battery < car.demandKwh) return
-  let kwh = car.demandKwh
-  let score = 4.5
+  if (car.phase !== 'atPump') return
+  const avail = Math.floor(state.battery)
+  if (avail < 5) {
+    ui.toast(state.genRate() > 0
+      ? `Bataryada elektrik yok (${avail} kWh) — santral üretiyor, birikmesini bekle.`
+      : 'Batarya boş: elektrik üreten santralin yok! Güneş paneli, jeneratör veya reaktör kur.', 'bad')
+    return
+  }
+  let kwh = Math.min(car.demandKwh, avail)
+  const partial = kwh < car.demandKwh
+  let score = partial ? 3.2 : 4.5
   if (car.patienceFrac < 0.4) score -= 1.5
   if (state.dieselRunning() && Math.random() < 0.35) {
     kwh = Math.ceil(kwh / 2)
@@ -476,9 +488,11 @@ ui.onChargeEV = car => {
     ui.toast('🔊 Jeneratör gürültüsünden rahatsız oldu, yarım şarjla gitti!', 'bad')
   }
   state.battery -= kwh
-  const revenue = kwh * EV_PRICE_PER_KWH
+  const revenue = Math.round(kwh * state.elecPrice)
   state.money += revenue
-  ui.toast(`⚡ ${kwh} kWh şarj: +₺${revenue}`, 'good')
+  ui.toast(partial
+    ? `⚡ Kısmi şarj ${kwh}/${car.demandKwh} kWh: +₺${revenue} (batarya yetmedi)`
+    : `⚡ ${kwh} kWh şarj: +₺${revenue}`, partial ? '' : 'good')
   concludeService(car, score)
 }
 
@@ -601,19 +615,40 @@ function rebuildFromState() {
     world.removeBuildingGroup('office')
     world.buildOffice(pv('office'))
   }
+  for (let i = 0; i < state.pumps; i++) {
+    const s = placedPos[`pump-${i}`]
+    if (s) world.movePump(i, new THREE.Vector2(s[0] - 0.9, s[1]))
+  }
+  for (let i = 0; i < state.evChargers; i++) {
+    const s = placedPos[`charger-${i}`]
+    if (s) world.moveCharger(i, new THREE.Vector2(s[0] - 0.5, s[1]))
+  }
+  if (placedPos.tank) world.moveTank(new THREE.Vector2(placedPos.tank[0], placedPos.tank[1]))
   for (const [id, rot] of Object.entries(placedRot)) world.rotateBuilding(id, rot)
   world.setClosed(state.closed)
 }
 
-function fixedObstacles(): Rect[] {
+function fixedObstacles(skipId = ''): Rect[] {
   const r: Rect[] = [
     { cx: 4.2, cy: 0, w: 2.6, d: 48 },       // servis şeridi (araç yolu)
-    { cx: -4.55, cy: -5.4, w: 5.0, d: 6.2 }, // yakıt tankları
-    { cx: -5.0, cy: 4.5, w: 4.6, d: 5.0 },   // ofis
     { cx: 4.0, cy: -11.5, w: 2.4, d: 3.4 },  // tabela
   ]
-  for (let i = 0; i < state.pumps; i++) r.push({ cx: 0.9, cy: PUMP_SLOTS_POS[i].y, w: 4.4, d: 4.0 })
-  for (let i = 0; i < state.evChargers; i++) r.push({ cx: 1.2, cy: EV_SLOTS_POS[i].y, w: 4.0, d: 2.6 })
+  if (skipId !== 'tank')
+    r.push({ cx: world.tankAnchor.x + 1.1, cy: world.tankAnchor.y + 1.2, w: 5.6, d: 6.4 })
+  if (skipId !== 'office') {
+    const of = world.buildings.find(b => b.id === 'office')
+    if (of) r.push({ cx: of.group.position.x, cy: of.group.position.y, w: 4.6, d: 5.0 })
+  }
+  for (let i = 0; i < state.pumps; i++) {
+    if (skipId === `pump-${i}`) continue
+    const s = world.pumpSlots[i]
+    r.push({ cx: s.x - 0.9, cy: s.y, w: 4.4, d: 4.0 })
+  }
+  for (let i = 0; i < state.evChargers; i++) {
+    if (skipId === `charger-${i}`) continue
+    const s = world.evSlots[i]
+    r.push({ cx: s.x - 0.6, cy: s.y, w: 4.0, d: 2.6 })
+  }
   return r
 }
 
@@ -792,7 +827,7 @@ function isValidPlacement(p: Rect, skipId: string, grassOk: boolean): boolean {
   for (const sx of [-1, 0, 1]) for (const sy of [-1, 0, 1]) {
     if (!landOk(p.cx + sx * (p.w / 2 - 0.2), p.cy + sy * (p.d / 2 - 0.2), grassOk)) return false
   }
-  for (const o of fixedObstacles()) if (overlaps(p, o)) return false
+  for (const o of fixedObstacles(skipId)) if (overlaps(p, o)) return false
   for (const o of placedRects) if (o.id !== skipId && overlaps(p, o)) return false
   return true
 }
@@ -805,9 +840,17 @@ function makeGhost(w: number, d: number): THREE.Mesh {
   return ghost
 }
 
+function footprintOf(id: string, move = false): { w: number; d: number; grass?: boolean } | null {
+  if (id.startsWith('pump-')) return { w: 4.4, d: 4.0 }
+  if (id.startsWith('charger-')) return { w: 4.0, d: 2.6 }
+  if (id === 'tank') return { w: 5.6, d: 6.4 }
+  return id in PLACEABLE ? PLACEABLE[id](move) : null
+}
+
 function startPlacement(id: string, move = false) {
   cancelPlacement()
-  const f = PLACEABLE[id](move)
+  const f = footprintOf(id, move)
+  if (!f) return
   const root = new THREE.Group()
   const planeMat = new THREE.MeshBasicMaterial({ color: 0x37c97e, transparent: true, opacity: 0.22, depthWrite: false })
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(f.w, f.d), planeMat)
@@ -849,11 +892,21 @@ function cancelPlacement() {
   world.showGrid(false)
 }
 
+/** taşımayı uygula — pompa/şarj/tank özel, kalanlar buildVisual */
+function applyDynamicMove(id: string, cx: number, cy: number) {
+  if (id.startsWith('pump-')) world.movePump(parseInt(id.slice(5)), new THREE.Vector2(cx - 0.9, cy))
+  else if (id.startsWith('charger-')) world.moveCharger(parseInt(id.slice(8)), new THREE.Vector2(cx - 0.5, cy))
+  else if (id === 'tank') world.moveTank(new THREE.Vector2(cx, cy))
+  else {
+    world.removeBuildingGroup(id)
+    buildVisual(id, new THREE.Vector2(cx, cy))
+  }
+}
+
 function confirmPlacement() {
   const p = placing!
   if (p.move) {
-    world.removeBuildingGroup(p.id)
-    buildVisual(p.id, new THREE.Vector2(p.cx, p.cy))
+    applyDynamicMove(p.id, p.cx, p.cy)
     ui.toast('Taşındı!', 'good')
   } else {
     if (!buyItem(state, p.id)) {
@@ -864,7 +917,8 @@ function confirmPlacement() {
     buildVisual(p.id, new THREE.Vector2(p.cx, p.cy))
     buyToast(p.id)
   }
-  world.rotateBuilding(p.id, p.rot)
+  if (!p.id.startsWith('pump-') && !p.id.startsWith('charger-') && p.id !== 'tank')
+    world.rotateBuilding(p.id, p.rot)
   placedPos[p.id] = [p.cx, p.cy]
   placedRot[p.id] = p.rot
   const i = placedRects.findIndex(r => r.id === p.id)
@@ -926,7 +980,7 @@ ui.onBuy = id => {
 }
 
 ui.onMove = id => {
-  if (!(id in PLACEABLE)) return
+  if (!footprintOf(id)) return
   startPlacement(id, true)
 }
 
@@ -940,7 +994,7 @@ function buyToast(id: string) {
     case 'toilet': ui.toast('🚻 Tuvalet hizmete girdi!', 'good'); break
     case 'grid': ui.toast(`⚡ Elektrik altyapısı Sv.${state.gridLevel} kuruldu!`, 'good'); break
     case 'battery': ui.toast('🔋 Batarya deposu kuruldu — üretim biriktikçe dolacak.', 'good'); break
-    case 'evcharger': ui.toast('🔌 DC şarj ünitesi kuruldu!', 'good'); break
+    case 'evcharger': syncSignPrices(); ui.toast('🔌 DC şarj ünitesi kuruldu!', 'good'); break
     case 'solar': ui.toast('☀️ Güneş santrali kuruldu. ⚠️ Paneller zamanla kirlenir!', 'good'); break
     case 'dieselgen': ui.toast('🛠️ Jeneratör kuruldu. ⚠️ Gürültüsü EV müşterilerini kaçırabilir!', 'good'); break
     case 'smr': ui.toast('☢️ Reaktör devrede! ⚠️ BAKIMI ASLA AKSATMA — patlarsa her şey gider!', 'bad'); break
@@ -1160,13 +1214,19 @@ if (!isFullMode && auth.currentEmail() === 'oguz@benerits.com' && !localStorage.
 
 // kâr marjı ayarı (ofis kartından): alış sabit, satışı oyuncu belirler
 function syncSignPrices() {
-  world.setPrices(state.prices.benzin, state.prices.dizel, state.prices.lpg)
+  world.setPrices(state.prices.benzin, state.prices.dizel, state.prices.lpg,
+    state.evChargers > 0 ? state.elecPrice : 0)
 }
 syncSignPrices()
 ui.onPriceChange = (f, delta) => {
-  const [lo, hi] = priceBounds(f)
-  state.prices[f] = Math.min(hi, Math.max(lo, Math.round((state.prices[f] + delta) * 2) / 2))
-  syncSignPrices()
+  if (f === 'elec') {
+    state.elecPrice = Math.min(18, Math.max(4, Math.round((state.elecPrice + delta) * 2) / 2))
+    syncSignPrices()
+  } else {
+    const [lo, hi] = priceBounds(f)
+    state.prices[f] = Math.min(hi, Math.max(lo, Math.round((state.prices[f] + delta) * 2) / 2))
+    syncSignPrices()
+  }
   refreshBuildingCard()
   persist()
 }
@@ -1199,7 +1259,7 @@ function buildingCard(id: string): BuildingCard | null {
       stats: [
         ['Durum', broken ? 'ARIZALI' : 'Çalışıyor', broken ? 'bad' : 'good'],
         ['Şarj süresi', 'Anında'],
-        ['Satış', `₺${EV_PRICE_PER_KWH}/kWh`],
+        ['Satış', `₺${state.elecPrice}/kWh`],
       ],
       action: broken ? { label: '🔧 Tamir Et — ₺1.000', maintId: `fix-charger-${i}` } : undefined,
     }
@@ -1214,13 +1274,19 @@ function buildingCard(id: string): BuildingCard | null {
           ['Müşteri etkisi', `${fx >= 0 ? '+' : ''}${fx}%`, fx >= 0 ? 'good' : 'bad'],
           ['İtibar', state.reputation.toFixed(1)],
         ],
-        priceRows: (['benzin', 'dizel', 'lpg'] as FuelType[]).map(f => {
-          const [lo, hi] = priceBounds(f)
-          return {
-            f, label: FUEL_LABEL[f], price: state.prices[f], cost: FUEL_COST[f],
-            canDown: state.prices[f] > lo, canUp: state.prices[f] < hi,
-          }
-        }),
+        priceRows: [
+          ...(['benzin', 'dizel', 'lpg'] as FuelType[]).map(f => {
+            const [lo, hi] = priceBounds(f)
+            return {
+              f: f as FuelType | 'elec', label: FUEL_LABEL[f], price: state.prices[f], cost: FUEL_COST[f] as number | string,
+              canDown: state.prices[f] > lo, canUp: state.prices[f] < hi,
+            }
+          }),
+          {
+            f: 'elec' as FuelType | 'elec', label: 'Elektrik (kWh)', price: state.elecPrice, cost: 'santralden',
+            canDown: state.elecPrice > 4, canUp: state.elecPrice < 18,
+          },
+        ],
       }
     }
     case 'tank':
@@ -1240,6 +1306,7 @@ function buildingCard(id: string): BuildingCard | null {
         desc: 'Santrallerin ürettiği elektriği biriktirir. Elektrikli araçlar buradan anında şarj alır.',
         stats: [
           ['Dolu', `${Math.floor(state.battery)} / ${state.batteryCapacity} kWh`],
+          ['Üretim', state.genRate() > 0 ? `+${state.genRate().toFixed(1)} kWh/sn` : 'SANTRAL YOK', state.genRate() > 0 ? 'good' : 'bad'],
           ['Üretim', `+${rate.toFixed(1)} kWh/sn`, rate > 0 ? 'good' : ''],
           ['Seviye', `${state.batteryLevel}/3`],
         ],
@@ -1373,7 +1440,7 @@ function refreshBuildingCard() {
   if (row && row.status === 'buy' && row.cost !== null) {
     card.buy = { label: `${row.title} — ₺${row.cost.toLocaleString('tr-TR')}`, id: shopId }
   }
-  if (selectedBuilding in PLACEABLE) {
+  if (footprintOf(selectedBuilding)) {
     card.move = { label: 'Taşı (ücretsiz)', id: selectedBuilding }
   }
   ui.showBuildingCard(card)
@@ -1515,7 +1582,7 @@ function handleClick(e: PointerEvent) {
     while (obj && !obj.userData.buildingId) obj = obj.parent
     if (obj?.userData.buildingId) {
       const bid = obj.userData.buildingId as string
-      if (editMode && bid in PLACEABLE) {
+      if (editMode && footprintOf(bid)) {
         startPlacement(bid, true) // düzenleme: direkt taşıma
         return
       }
@@ -1640,7 +1707,7 @@ function frame() {
       const used = new Set(tankers.map(x => x.slot))
       let slot = 0
       while (used.has(slot)) slot++
-      tankers.push({ t: new Tanker(world.scene, modelLib, f, slot), fuel: f, slot })
+      tankers.push({ t: new Tanker(world.scene, modelLib, f, slot, new THREE.Vector3(world.tankAnchor.x, world.tankAnchor.y, 0)), fuel: f, slot })
     }
   }
   const blockedFor = (self: Tanker) => (pos: THREE.Vector3, dir: THREE.Vector3) => {

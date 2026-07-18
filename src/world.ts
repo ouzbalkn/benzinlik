@@ -233,7 +233,7 @@ export interface Building {
 export class World {
   scene = new THREE.Scene()
   stationName = 'BENZİNLİK'
-  private priceView: [number, number, number] = [10, 9, 6]
+  private priceView: [number, number, number, number] = [10, 9, 6, 0]
   buildings: Building[] = []
   private closedFlag = false
   private signLevel = 0
@@ -343,10 +343,7 @@ export class World {
     this.tankGroup = new THREE.Group()
     s.add(this.tankGroup)
     this.buildTankCluster(0)
-    this.register('tank', 'YAKIT TANKI', this.tankGroup, 0)
-    const tankLabel = this.buildings.find(b => b.id === 'tank')!
-    ;(tankLabel.group.children.find(o => o instanceof THREE.Sprite) as THREE.Sprite)
-      .position.set(TANK_POS.x, TANK_POS.y, 3.6)
+    this.register('tank', 'YAKIT TANKI', this.tankGroup, 3.8)
     // yakıt hattı yeraltından gider — sadece rögar kapakları görünür
     for (const [mx, my] of [[-4.2, -4.6], [-1.4, -3.4], [0.6, -2.8]] as const) {
       const cover = new THREE.Mesh(new THREE.CircleGeometry(0.32, 18), lam(0x565e66))
@@ -513,8 +510,8 @@ export class World {
   }
 
   /** oyuncu fiyat değiştirince tabela güncellenir */
-  setPrices(benzin: number, dizel: number, lpg: number) {
-    this.priceView = [benzin, dizel, lpg]
+  setPrices(benzin: number, dizel: number, lpg: number, elec = 0) {
+    this.priceView = [benzin, dizel, lpg, elec]
     this.setSign(this.signLevel)
   }
 
@@ -612,8 +609,7 @@ export class World {
       if (want && b.warnText !== want.text) {
         if (b.warn) b.group.remove(b.warn)
         b.warn = warnSprite(want.text, want.maintId)
-        b.warn.position.z = b.labelZ > 0 ? b.labelZ + 0.8 : 4.4
-        if (b.id === 'tank') b.warn.position.set(TANK_POS.x, TANK_POS.y, 4.4)
+        b.warn.position.z = b.labelZ + 0.8
         b.group.add(b.warn)
         b.warnText = want.text
       } else if (!want && b.warn) {
@@ -650,16 +646,21 @@ export class World {
 
   /** seviye arttıkça küre sayısı, boyutu ve kuşak rengi değişir */
   buildTankCluster(level: number) {
+    this.tankLevelNow = level
     for (const ch of [...this.tankGroup.children]) {
       if (!(ch as THREE.Sprite).isSprite) this.tankGroup.remove(ch)
     }
-    const spots: [number, number][] = [
-      [TANK_POS.x, TANK_POS.y], [TANK_POS.x, TANK_POS.y + 2.4],
-      [TANK_POS.x + 2.2, TANK_POS.y], [TANK_POS.x + 2.2, TANK_POS.y + 2.4],
-    ]
+    this.tankGroup.position.set(this.tankAnchor.x, this.tankAnchor.y, 0)
+    const spots: [number, number][] = [[0, 0], [0, 2.4], [2.2, 0], [2.2, 2.4]]
     const R = 1.02 + level * 0.09
     const bandColor = [0xd64545, 0x2f6fed, 0xe8862e, 0x39424e][level]
     for (let i = 0; i <= level; i++) this.addSphereTank(spots[i][0], spots[i][1], R, bandColor)
+  }
+
+  /** tank kümesini taşı (merkezden çapaya çevirir) */
+  moveTank(center: THREE.Vector2) {
+    this.tankAnchor.set(center.x - 1.1, center.y - 1.2)
+    this.buildTankCluster(this.tankLevelNow)
   }
 
   private placeTree(x: number, y: number, scale: number) {
@@ -710,6 +711,11 @@ export class World {
   }
 
   private ownedMarks = new Map<string, THREE.Group>()
+  /** dinamik servis noktaları: pompa/şarj taşınınca araçlar yeni yere gelir */
+  pumpSlots: THREE.Vector3[] = PUMP_SLOTS_POS.map(p => p.clone())
+  evSlots: THREE.Vector3[] = EV_SLOTS_POS.map(p => p.clone())
+  tankAnchor = new THREE.Vector2(TANK_POS.x, TANK_POS.y)
+  private tankLevelNow = 0
 
   /** beton derzleri: hepsi YOLA DİK (x ekseni boyunca), dünya gridine hizalı —
    *  komşu betonlarda çizgi aynı hizada devam eder, bütünlük bozulmaz */
@@ -970,8 +976,9 @@ export class World {
     if (id === 'battery') this.batteryGroup = null
   }
 
-  addPump(index: number) {
-    const y = PUMP_SLOTS_POS[index].y
+  addPump(index: number, at?: THREE.Vector2) {
+    const base = at ?? new THREE.Vector2(0, PUMP_SLOTS_POS[index].y)
+    this.pumpSlots[index] = new THREE.Vector3(base.x + 1.8, base.y, 0)
     const g = new THREE.Group()
     box(1.7, 3.4, 0.2, 0xc7ccd1, 0, 0, 0.1, g)
     box(1.75, 3.45, 0.05, 0xe0b13e, 0, 0, 0.02, g)
@@ -980,13 +987,19 @@ export class World {
     const p = buildPumpMesh(this.nightMats)
     p.position.z = 0.2
     g.add(p)
-    g.position.set(0, y, 0)
+    g.position.set(base.x, base.y, 0)
     this.scene.add(g)
     this.register(`pump-${index}`, `POMPA #${index + 1}`, g, 2.5)
   }
 
-  addEvCharger(index: number) {
-    const y = EV_SLOTS_POS[index].y
+  movePump(index: number, at: THREE.Vector2) {
+    this.removeBuildingGroup(`pump-${index}`)
+    this.addPump(index, at)
+  }
+
+  addEvCharger(index: number, at?: THREE.Vector2) {
+    const base = at ?? new THREE.Vector2(0.7, EV_SLOTS_POS[index].y)
+    this.evSlots[index] = new THREE.Vector3(base.x + 1.1, base.y, 0)
     const g = new THREE.Group()
     const pad = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.9), new THREE.MeshLambertMaterial({
       color: 0x2f8fd6, transparent: true, opacity: 0.28,
@@ -1001,9 +1014,14 @@ export class World {
     box(0.04, 0.34, 0.3, 0x1c2530, 0.19, 0, 1.0, g)
     cyl(0.03, 0.5, 0x23272b, 0.15, 0.3, 0.6, 'z', g)
     box(0.1, 0.08, 0.2, 0x35c7d6, 0.15, 0.3, 0.35, g)
-    g.position.set(0.7, y, 0)
+    g.position.set(base.x, base.y, 0)
     this.scene.add(g)
     this.register(`charger-${index}`, `DC ŞARJ #${index + 1}`, g, 2.3)
+  }
+
+  moveCharger(index: number, at: THREE.Vector2) {
+    this.removeBuildingGroup(`charger-${index}`)
+    this.addEvCharger(index, at)
   }
 
   setStationName(name: string) {
@@ -1041,13 +1059,22 @@ export class World {
         ctx.font = `800 ${fs}px -apple-system, sans-serif`
       }
       ctx.fillText(this.stationName, W / 2, 44)
-      ctx.fillStyle = '#1c2530'; ctx.font = '700 29px -apple-system, sans-serif'
-      ctx.textAlign = 'left'; ctx.fillText('BENZİN', 18, 122)
-      ctx.textAlign = 'right'; ctx.fillText(this.priceView[0].toFixed(1), W - 18, 122)
-      ctx.textAlign = 'left'; ctx.fillText('DİZEL', 18, 168)
-      ctx.textAlign = 'right'; ctx.fillText(this.priceView[1].toFixed(1), W - 18, 168)
-      ctx.textAlign = 'left'; ctx.fillText('LPG', 18, 214)
-      ctx.textAlign = 'right'; ctx.fillText(this.priceView[2].toFixed(1), W - 18, 214)
+      const hasElec = this.priceView[3] > 0
+      const rows: [string, string, string][] = [
+        ['BENZİN', this.priceView[0].toFixed(1), '#1c2530'],
+        ['DİZEL', this.priceView[1].toFixed(1), '#1c2530'],
+        ['LPG', this.priceView[2].toFixed(1), '#1c2530'],
+      ]
+      if (hasElec) rows.push(['kWh', this.priceView[3].toFixed(1), '#2b7fb8'])
+      const rowFs = hasElec ? 26 : 29
+      const y0 = hasElec ? 112 : 122
+      const dy = hasElec ? 38 : 46
+      ctx.font = `700 ${rowFs}px -apple-system, sans-serif`
+      rows.forEach(([label, val, col], i) => {
+        ctx.fillStyle = col
+        ctx.textAlign = 'left'; ctx.fillText(label, 18, y0 + dy * i)
+        ctx.textAlign = 'right'; ctx.fillText(val, W - 18, y0 + dy * i)
+      })
       if (this.closedFlag) {
         ctx.fillStyle = '#d64545'
         ctx.fillRect(0, 238, W, 50)

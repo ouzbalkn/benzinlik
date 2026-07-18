@@ -103,6 +103,8 @@ export class GameState {
   gridLevel = 0
   evChargers = 0
   batteryLevel = 0
+  /** oyuncunun belirlediği elektrik satış fiyatı (₺/kWh) */
+  elecPrice = EV_PRICE_PER_KWH
   battery = 0 // kWh
   hasSolar = false
   hasDiesel = false
@@ -180,6 +182,12 @@ export class GameState {
 
   get tankCapacity() { return TANK_CAPACITY[this.tankLevel] }
   get batteryCapacity() { return BATTERY_CAP[this.batteryLevel] }
+
+  /** elektrik fiyatının EV müşteri talebine etkisi (1.0 = nötr) */
+  evPriceFactor() {
+    const r = (this.elecPrice - EV_PRICE_PER_KWH) / EV_PRICE_PER_KWH
+    return Math.min(1.25, Math.max(0.5, 1.05 - 0.55 * r))
+  }
 
   /** jeneratör şu an gürültü yapıyor mu */
   dieselRunning() {
@@ -537,7 +545,7 @@ export function checkAchievements(s: GameState) {
 
 const SAVE_FIELDS = [
   'money', 'reputation', 'stationName', 'pumps', 'signLevel', 'tankLevel', 'marketLevel', 'toiletLevel',
-  'gridLevel', 'evChargers', 'batteryLevel', 'battery', 'hasSolar', 'hasDiesel', 'hasSMR',
+  'gridLevel', 'evChargers', 'batteryLevel', 'battery', 'elecPrice', 'hasSolar', 'hasDiesel', 'hasSMR',
   'hasWash', 'hasOil', 'hasCoffee', 'hasRestaurant', 'hasTruckPark', 'hasAirWater', 'hasSelfWash', 'hasParking',
   'solarDirt', 'smrWear', 'uranium', 'day', 'dayStartMoney', 'closed',
   'lastLoginDate', 'loginStreak', 'dailyDate', 'dailyServed', 'dailyDone', 'maintCare',

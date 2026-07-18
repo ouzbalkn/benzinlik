@@ -25,7 +25,7 @@ export interface BuildingCard {
   /** karttan doğrudan yükseltme/satın alma */
   buy?: { label: string; id: string }
   /** ofis kartı: yakıt satış fiyatı kontrolleri */
-  priceRows?: { f: FuelType; label: string; price: number; cost: number; canDown: boolean; canUp: boolean }[]
+  priceRows?: { f: FuelType | 'elec'; label: string; price: number; cost: number | string; canDown: boolean; canUp: boolean }[]
 }
 
 /** ikon kutusu renkleri — her kalem kendi kimliğinde */
@@ -85,7 +85,8 @@ export class UI {
   onMove: (id: string) => void = () => {}
   onReset: () => void = () => {}
   onToggleClosed: () => void = () => {}
-  onPriceChange: (f: FuelType, delta: number) => void = () => {}
+  onPriceChange: (f: FuelType | 'elec', delta: number) => void = () => {}
+  private lastHudKey = ''
   onLogin: (email: string, pass: string) => void = () => {}
   onRegister: (email: string, pass: string) => void = () => {}
   onLogout: () => void = () => {}
@@ -266,7 +267,7 @@ export class UI {
     })
     el<HTMLDivElement>('binfo-prices').addEventListener('click', e => {
       const btn = (e.target as HTMLElement).closest('button[data-pf]') as HTMLButtonElement | null
-      if (btn) this.onPriceChange(btn.dataset.pf as FuelType, Number(btn.dataset.pd))
+      if (btn) this.onPriceChange(btn.dataset.pf as FuelType | 'elec', Number(btn.dataset.pd))
     })
 
     // mağaza tıklamaları
@@ -324,7 +325,8 @@ export class UI {
     this.evCtl.style.display = 'none'
     const fc = car.demandType === 'benzin' ? '#27a05a' : car.demandType === 'dizel' ? '#e8862e' : '#2f6fed'
     this.demand.innerHTML = `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
-      `<span class="fpill" style="background:${fc}">${FUEL_LABEL[car.demandType]}</span><span class="damt">₺${car.demandAmount}</span>`
+      `<span class="fpill" style="background:${fc}">${FUEL_LABEL[car.demandType]}</span>` +
+      `<span class="damt">${car.wantsFull ? 'FULLE' : `₺${car.demandAmount}`}</span>`
     this.nozBenzin.classList.toggle('sel', car.nozzle === 'benzin')
     this.nozDizel.classList.toggle('sel', car.nozzle === 'dizel')
     this.nozLpg.classList.toggle('sel', car.nozzle === 'lpg')
@@ -332,11 +334,14 @@ export class UI {
     this.nozBenzin.disabled = locked
     this.nozDizel.disabled = locked
     this.nozLpg.disabled = locked
-    this.amount.disabled = car.filling
+    this.amount.disabled = car.filling || car.wantsFull
     const amt = Math.floor(Number(this.amount.value))
-    this.startBtn.disabled = !car.nozzle || !(amt > 0) || car.filling || car.filled > 0
+    this.startBtn.disabled = !car.nozzle || !(amt > 0) || car.filling || car.filled > 0 || car.wantsFull
     el<HTMLButtonElement>('fullbtn').disabled = !car.nozzle || car.filling || car.filled > 0
-    if (!car.filling && car.filled === 0) this.progress.textContent = 'Tabanca seç; tutar gir ya da FULLE'
+    if (!car.filling && car.filled === 0)
+      this.progress.textContent = car.wantsFull
+        ? 'Müşteri FULLE istiyor — tabancayı seç, FULLE bas'
+        : 'Tabanca seç; tutar gir ya da FULLE'
   }
 
   // ---- bina bilgi kartı ----
@@ -348,7 +353,7 @@ export class UI {
     el<HTMLDivElement>('binfo-stats').innerHTML = card.stats.map(([k, v, cls]) =>
       `<div class="stat"><span class="k">${stripEmoji(k)}</span><span class="v ${cls ?? ''}">${stripEmoji(v)}</span></div>`).join('')
     el<HTMLDivElement>('binfo-prices').innerHTML = (card.priceRows ?? []).map(r =>
-      `<div class="prow"><span class="pl">${r.label}</span><span class="pc">alış ₺${r.cost}</span>` +
+      `<div class="prow"><span class="pl">${r.label}</span><span class="pc">${typeof r.cost === 'number' ? `alış ₺${r.cost}` : r.cost}</span>` +
       `<button class="btn pbtn" data-pf="${r.f}" data-pd="-0.5" ${r.canDown ? '' : 'disabled'}>−</button>` +
       `<span class="pv">₺${r.price.toFixed(1)}</span>` +
       `<button class="btn pbtn" data-pf="${r.f}" data-pd="0.5" ${r.canUp ? '' : 'disabled'}>+</button></div>`).join('')
@@ -490,7 +495,6 @@ export class UI {
     }
 
     this.closeLabel.textContent = state.closed ? 'KAPALI' : 'Açık'
-    this.closeBtn.classList.toggle('danger', state.closed)
 
     if (state.batteryLevel > 0) {
       this.battChip.style.display = 'flex'
@@ -499,12 +503,18 @@ export class UI {
     }
 
     this.orderLabel.textContent = 'Yakıt Siparişi'
-    this.orderBtn.classList.toggle('danger', anyLow)
-    this.orderBtn.classList.toggle('warn', !anyLow)
 
     const maintCount = getMaintenanceItems(state).filter(m => !m.disabled).length
-    this.shopBtn.classList.toggle('danger', maintCount > 0)
-    this.shopBtn.classList.toggle('primary', maintCount === 0)
+    // sınıflar yalnızca durum DEĞİŞİNCE yazılır — her karede toggle gölge flash'ı yapıyordu
+    const hudKey = `${state.closed}|${anyLow}|${maintCount > 0}`
+    if (hudKey !== this.lastHudKey) {
+      this.lastHudKey = hudKey
+      this.closeBtn.classList.toggle('danger', state.closed)
+      this.orderBtn.classList.toggle('danger', anyLow)
+      this.orderBtn.classList.toggle('warn', !anyLow)
+      this.shopBtn.classList.toggle('danger', maintCount > 0)
+      this.shopBtn.classList.toggle('primary', maintCount === 0)
+    }
     this.maintBadge.style.display = maintCount > 0 ? 'inline-block' : 'none'
     this.maintBadge.textContent = `${maintCount}`
     const dot = el<HTMLSpanElement>('shopdot')

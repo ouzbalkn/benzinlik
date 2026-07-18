@@ -160,6 +160,8 @@ export class Car {
   filling = false
   /** FULLE modu: gizli depo ihtiyacına kadar doldurulur */
   fullMode = false
+  /** müşteri özellikle 'FULLE' istiyor (tutar girilemez) */
+  wantsFull = false
   /** aracın gizli yakıt ihtiyacı (litre) — tipine göre: binek/SUV/kamyon */
   hiddenNeedL = 30
   slotIndex = -1
@@ -221,6 +223,7 @@ export class Car {
     this.demandAmount = DEMAND_AMOUNTS[Math.floor(Math.random() * DEMAND_AMOUNTS.length)]
     this.demandLiters = this.demandAmount / this.prices[this.demandType]
     this.demandKwh = 20 + Math.floor(Math.random() * 9) * 5 // 20..60
+    this.wantsFull = kind === 'fuel' && Math.random() < 0.25
     this.maxPatience = kind === 'ev' ? 45 : 75
     this.patience = this.maxPatience
     this.wantsMarket = Math.random() < 0.35
@@ -279,7 +282,9 @@ export class Car {
       this.bubble = textSprite(`⚡ ${this.demandKwh} kWh`, '#35c7d6')
     } else {
       const accent = this.demandType === 'benzin' ? '#27a05a' : this.demandType === 'dizel' ? '#e8862e' : '#2f6fed'
-      this.bubble = textSprite(`₺${this.demandAmount} ${FUEL_LABEL[this.demandType]}`, accent)
+      this.bubble = textSprite(this.wantsFull
+        ? `FULLE ${FUEL_LABEL[this.demandType]}`
+        : `₺${this.demandAmount} ${FUEL_LABEL[this.demandType]}`, accent)
     }
     this.bubble.position.z = 2.85
     this.group.add(this.bubble)
@@ -357,7 +362,7 @@ export class Tanker {
   done = false
   unloading = false
 
-  constructor(scene: THREE.Scene, lib: ModelLib | null, fuel: FuelType = 'benzin', queueIdx = 0) {
+  constructor(scene: THREE.Scene, lib: ModelLib | null, fuel: FuelType = 'benzin', queueIdx = 0, target = new THREE.Vector3(TANK_POS.x, TANK_POS.y, 0)) {
     const tint = fuel === 'benzin' ? 0xa8d6b8 : fuel === 'dizel' ? 0xe3c49b : 0xaccdf0
     let g: THREE.Group
     if (lib?.tankerBase) {
@@ -391,11 +396,11 @@ export class Tanker {
     g.position.set(ROAD_X, -44, 0)
     scene.add(g)
     this.group = g
-    const parkY = TANK_POS.y + [0, 2.4, -2.4][queueIdx % 3]
+    const parkY = target.y + [0, 2.4, -2.4][queueIdx % 3]
     this.path = [
       new THREE.Vector3(LANE_NEAR, APRON_IN_Y - 3.5, 0),
       new THREE.Vector3(4.2, APRON_IN_Y, 0),
-      new THREE.Vector3(TANK_POS.x + 3.2, parkY, 0),
+      new THREE.Vector3(target.x + 3.2, parkY, 0),
     ]
   }
 
@@ -446,7 +451,10 @@ export class Tanker {
   }
 }
 
-const WAIT_SPOTS = [new THREE.Vector3(3.4, -4.6, 0), new THREE.Vector3(3.4, -7.4, 0)]
+const WAIT_SPOTS = [
+  new THREE.Vector3(3.4, -4.6, 0), new THREE.Vector3(3.4, -7.4, 0),
+  new THREE.Vector3(3.4, -16.8, 0), new THREE.Vector3(3.4, -19.6, 0),
+]
 const PARK_LANE_Y = 4.8
 
 export interface CarManagerOpts {
@@ -462,6 +470,9 @@ export interface CarManagerOpts {
   extraObstacles: () => THREE.Vector3[]
   /** güncel satış fiyatları (oyuncu belirler) */
   prices: () => Record<FuelType, number>
+  /** dinamik servis noktaları — pompa/şarj taşınınca değişir */
+  pumpSlot: (i: number) => THREE.Vector3
+  evSlot: (i: number) => THREE.Vector3
   onCarReady: (car: Car) => void
   onCarLost: (car: Car) => void
 }
@@ -473,7 +484,7 @@ export class CarManager {
   private pumpOcc: (Car | null)[] = [null, null, null, null]
   private evOcc: (Car | null)[] = [null, null, null, null]
   private parkOcc: (Car | null)[] = []
-  private waitOcc: (Car | null)[] = [null, null]
+  private waitOcc: (Car | null)[] = [null, null, null, null]
 
   constructor(private scene: THREE.Scene, private lib: ModelLib | null,
               private opts: CarManagerOpts) {}
@@ -646,7 +657,7 @@ export class CarManager {
       this.evOcc[slot] = car
       car.slotIndex = slot
       car.phase = 'driving'
-      car.setPath(this.entryPath(EV_SLOTS_POS[slot]), () => this.arriveAtSlot(car))
+      car.setPath(this.entryPath(this.opts.evSlot(slot)), () => this.arriveAtSlot(car))
       car.showBars()
       return
     }
@@ -659,7 +670,7 @@ export class CarManager {
       this.pumpOcc[slot] = car
       car.slotIndex = slot
       car.phase = 'driving'
-      car.setPath(this.entryPath(PUMP_SLOTS_POS[slot]), () => this.arriveAtSlot(car))
+      car.setPath(this.entryPath(this.opts.pumpSlot(slot)), () => this.arriveAtSlot(car))
       car.showBars()
       return
     }
@@ -697,7 +708,7 @@ export class CarManager {
     this.pumpOcc[slot] = car
     car.slotIndex = slot
     car.phase = 'driving'
-    const p = PUMP_SLOTS_POS[slot]
+    const p = this.opts.pumpSlot(slot)
     car.setPath([
       new THREE.Vector3(3.2, p.y - 2.5, 0),
       p,
