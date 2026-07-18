@@ -106,6 +106,11 @@ export class GameState {
   batteryLevel = 0
   /** oyuncunun belirlediği elektrik satış fiyatı (₺/kWh) */
   elecPrice = EV_PRICE_PER_KWH
+  /** ömür boyu istatistikler */
+  stats = {
+    served: 0, lost: 0, kwh: 0, revenue: 0,
+    liters: { benzin: 0, dizel: 0, lpg: 0 } as Record<FuelType, number>,
+  }
   battery = 0 // kWh
   solarCount = 0
   get hasSolar() { return this.solarCount > 0 }
@@ -573,6 +578,7 @@ export function serializeState(s: GameState): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const f of SAVE_FIELDS) out[f] = (s as any)[f]
   out.tanks = { ...s.tanks }
+  out.stats = { ...s.stats, liters: { ...s.stats.liters } }
   out.prices = { ...s.prices }
   out.orders = JSON.parse(JSON.stringify(s.orders)) // bekleyen tankerler F5'te kaybolmasın
   out.pendingCash = { ...s.pendingCash }
@@ -592,6 +598,13 @@ export function hydrateState(s: GameState, data: Record<string, unknown>) {
   if (data.hasAirWater && !s.airWaterCount) s.airWaterCount = 1
   if (data.hasSelfWash && !s.selfWashCount) s.selfWashCount = 1
   if (data.tanks && typeof data.tanks === 'object') Object.assign(s.tanks, data.tanks)
+  const st = data.stats as { liters?: Record<string, number> } & Record<string, number> | undefined
+  if (st && typeof st === 'object') {
+    for (const k of ['served', 'lost', 'kwh', 'revenue'] as const) {
+      if (typeof st[k] === 'number') s.stats[k] = st[k]
+    }
+    if (st.liters) Object.assign(s.stats.liters, st.liters)
+  }
   if (data.orders && typeof data.orders === 'object') {
     for (const f of FUELS) {
       const o = (data.orders as Record<string, { pending?: boolean; eta?: number; arrived?: boolean }>)[f]

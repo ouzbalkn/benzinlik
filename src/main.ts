@@ -168,6 +168,7 @@ const cars = new CarManager(world.scene, modelLib, {
   gateOutY: () => world.gateOut.y,
   onCarReady: car => { if (!ui.activeCar) ui.selectCar(car) },
   onCarLost: car => {
+    state.stats.lost++
     ui.toast('Müşteri beklemekten sıkıldı ve gitti!', 'bad', true)
     audio.miss()
     state.addRep(-0.2)
@@ -445,6 +446,9 @@ function finishSale(car: Car) {
   }
 
   state.money += revenue
+  state.stats.served++
+  state.stats.revenue += revenue
+  if (car.nozzle) state.stats.liters[car.nozzle] += car.filled
   car.filling = false
   concludeService(car, score)
 }
@@ -495,11 +499,14 @@ function tickEvCharging(dt: number) {
     const give = Math.min(need, cap * dt, state.battery)
     state.battery = Math.max(0, state.battery - give)
     c.chargedKwh += give
-    c.setCounter(`⚡ ${Math.floor(c.chargedKwh)} kWh · kalan ${Math.max(0, Math.ceil(c.demandKwh - c.chargedKwh))}`)
+    c.setCounter(`⚡ ${Math.floor(c.chargedKwh)}/${c.demandKwh} kWh`)
     if (c.chargedKwh >= c.demandKwh - 0.001) {
       c.charging = false
       const revenue = Math.round(c.demandKwh * state.elecPrice)
       state.money += revenue
+      state.stats.served++
+      state.stats.kwh += c.demandKwh
+      state.stats.revenue += revenue
       let score = 4.5
       if (c.patienceFrac < 0.4) score -= 1.5
       ui.toast(`⚡ ${c.demandKwh} kWh şarj tamamlandı: +₺${revenue}`, 'good')
@@ -664,6 +671,27 @@ function rebuildFromState() {
   if (placedPos.tank) world.moveTank(new THREE.Vector2(placedPos.tank[0], placedPos.tank[1]))
   for (const [id, rot] of Object.entries(placedRot)) world.rotateBuilding(id, rot)
   world.setClosed(state.closed)
+}
+
+/** araçların ASLA içinden geçemeyeceği katı objeler (fiziksel gövdeler) */
+function hardRects(): { cx: number; cy: number; w: number; d: number }[] {
+  const r: { cx: number; cy: number; w: number; d: number }[] = []
+  for (let i = 0; i < state.pumps; i++) {
+    const s = world.pumpSlots[i]
+    r.push({ cx: s.x - 1.8, cy: s.y, w: 1.5, d: 3.4 })
+  }
+  for (let i = 0; i < state.evChargers; i++) {
+    const s = world.evSlots[i]
+    r.push({ cx: s.x - 1.1, cy: s.y, w: 0.9, d: 1.4 })
+  }
+  r.push({ cx: world.tankAnchor.x + 0.45, cy: world.tankAnchor.y + 0.45, w: 2.2, d: 2.2 })
+  const of = world.buildings.find(b => b.id === 'office')
+  if (of) r.push({ cx: of.group.position.x, cy: of.group.position.y, w: 4.2, d: 4.6 })
+  for (const p of placedRects) {
+    if (p.id.startsWith('parking') || p.id === 'gatein' || p.id === 'gateout') continue
+    r.push({ cx: p.cx, cy: p.cy, w: p.w, d: p.d })
+  }
+  return r
 }
 
 function fixedObstacles(skipId = ''): Rect[] {
@@ -1356,6 +1384,13 @@ function buildingCard(id: string): BuildingCard | null {
         stats: [
           ['Müşteri etkisi', `${fx >= 0 ? '+' : ''}${fx}%`, fx >= 0 ? 'good' : 'bad'],
           ['İtibar', state.reputation.toFixed(1)],
+          ['Toplam müşteri', `${state.stats.served}`, 'good'],
+          ['Kaçan müşteri', `${state.stats.lost}`, state.stats.lost > state.stats.served / 4 ? 'bad' : ''],
+          ['Benzin satışı', `${Math.round(state.stats.liters.benzin)} L`],
+          ['Dizel satışı', `${Math.round(state.stats.liters.dizel)} L`],
+          ['LPG satışı', `${Math.round(state.stats.liters.lpg)} L`],
+          ['Elektrik satışı', `${Math.round(state.stats.kwh)} kWh`],
+          ['Toplam ciro', `₺${Math.round(state.stats.revenue).toLocaleString('tr-TR')}`, 'good'],
         ],
         priceRows: [
           ...(['benzin', 'dizel', 'lpg'] as FuelType[]).map(f => {
@@ -1901,6 +1936,7 @@ function frame() {
 
   world.update(dt)
   audio.setDiesel(state.dieselRunning() && !state.closed)
+  Car.solids = hardRects()
   tickEvCharging(dt)
   syncHoses()
   updateCamera()

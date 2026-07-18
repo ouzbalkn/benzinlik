@@ -350,6 +350,16 @@ export class Car {
     this.feedbackT = 2.5
   }
 
+  /** ana döngü her karede doldurur: sert engeller (pompa, bina...) */
+  static solids: { cx: number; cy: number; w: number; d: number }[] = []
+
+  private static insideSolid(x: number, y: number): boolean {
+    for (const o of Car.solids) {
+      if (Math.abs(x - o.cx) < o.w / 2 + 0.45 && Math.abs(y - o.cy) < o.d / 2 + 0.45) return true
+    }
+    return false
+  }
+
   update(dt: number) {
     if (this.path.length > 0 && !this.hold) {
       const pos = this.group.position
@@ -368,12 +378,23 @@ export class Car {
         }
       } else {
         d.normalize()
-        pos.addScaledVector(d, step)
-        const targetYaw = Math.atan2(d.y, d.x)
-        let diff = targetYaw - this.group.rotation.z
-        while (diff > Math.PI) diff -= Math.PI * 2
-        while (diff < -Math.PI) diff += Math.PI * 2
-        this.group.rotation.z += diff * Math.min(1, dt * 8)
+        // sert engel: ileri adım bir objenin içine giriyorsa eksen eksen kaymayı dene
+        const nx = pos.x + d.x * step
+        const ny = pos.y + d.y * step
+        let mx = pos.x, my = pos.y
+        if (!Car.insideSolid(nx, ny)) { mx = nx; my = ny }
+        else if (Math.abs(d.x) > 0.01 && !Car.insideSolid(nx, pos.y)) { mx = nx } // duvar boyunca x'te kay
+        else if (Math.abs(d.y) > 0.01 && !Car.insideSolid(pos.x, ny)) { my = ny } // duvar boyunca y'de kay
+        // ikisi de tıkalıysa bu kare bekle (asla içinden geçme)
+        const moved = mx !== pos.x || my !== pos.y
+        pos.set(mx, my, pos.z)
+        if (moved) {
+          const yaw = Math.atan2(d.y, d.x)
+          let diff = yaw - this.group.rotation.z
+          while (diff > Math.PI) diff -= Math.PI * 2
+          while (diff < -Math.PI) diff += Math.PI * 2
+          this.group.rotation.z += diff * Math.min(1, dt * 8)
+        }
       }
     }
 
@@ -576,6 +597,8 @@ export class CarManager {
       if (!dir) continue
       for (const o of this.cars) {
         if (o === c || o.phase === 'gone') continue
+        // otopark içi: park etmiş komşu araçlar engel sayılmaz (dar aralıkta kilitlenme olmasın)
+        if (o.phase === 'parked' && (c.phase === 'toPark' || c.phase === 'parked' || c.phase === 'leaving')) continue
         const rel = new THREE.Vector3().subVectors(o.group.position, c.group.position)
         rel.z = 0
         const forward = rel.dot(dir)
