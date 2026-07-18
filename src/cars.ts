@@ -196,7 +196,8 @@ export class Car {
       this.group = buildCarMesh(bk, CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)])
     }
     this.group.userData.car = this
-    this.demandType = Math.random() < 0.5 ? 'benzin' : 'dizel'
+    const fr = Math.random()
+    this.demandType = fr < 0.4 ? 'benzin' : fr < 0.8 ? 'dizel' : 'lpg'
     this.demandAmount = DEMAND_AMOUNTS[Math.floor(Math.random() * DEMAND_AMOUNTS.length)]
     this.demandLiters = this.demandAmount / FUEL_PRICE[this.demandType]
     this.demandKwh = 20 + Math.floor(Math.random() * 9) * 5 // 20..60
@@ -251,7 +252,7 @@ export class Car {
     if (this.kind === 'ev') {
       this.bubble = textSprite(`⚡ ${this.demandKwh} kWh`, '#35c7d6')
     } else {
-      const accent = this.demandType === 'benzin' ? '#27a05a' : '#e8862e'
+      const accent = this.demandType === 'benzin' ? '#27a05a' : this.demandType === 'dizel' ? '#e8862e' : '#2f6fed'
       this.bubble = textSprite(`₺${this.demandAmount} ${FUEL_LABEL[this.demandType]}`, accent)
     }
     this.bubble.position.z = 2.85
@@ -331,12 +332,13 @@ export class Tanker {
   done = false
   unloading = false
 
-  constructor(scene: THREE.Scene, lib: ModelLib | null) {
+  constructor(scene: THREE.Scene, lib: ModelLib | null, fuel: FuelType = 'benzin', queueIdx = 0) {
+    const tint = fuel === 'benzin' ? 0xa8d6b8 : fuel === 'dizel' ? 0xe3c49b : 0xaccdf0
     let g: THREE.Group
     if (lib?.tankerBase) {
       g = new THREE.Group()
       g.add(cloneModel(lib.tankerBase))
-      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16), lam(0xc4cdd4))
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16), lam(tint))
       tank.rotation.z = Math.PI / 2
       tank.position.set(-0.55, 0, 0.95)
       tank.castShadow = true
@@ -350,7 +352,7 @@ export class Tanker {
       g = new THREE.Group()
       const cab = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 1.5), lam(0xd64545))
       cab.position.set(1.9, 0, 0.95); cab.castShadow = true; g.add(cab)
-      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 3.4, 18), lam(0xc4cdd4))
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 3.4, 18), lam(tint))
       tank.rotation.z = Math.PI / 2
       tank.position.set(-0.6, 0, 1.15); tank.castShadow = true; g.add(tank)
       const chassis = new THREE.Mesh(new THREE.BoxGeometry(4.6, 1.4, 0.3), lam(0x2b2f33))
@@ -364,10 +366,11 @@ export class Tanker {
     g.position.set(ROAD_X, -44, 0)
     scene.add(g)
     this.group = g
+    const parkY = TANK_POS.y + [0, 2.4, -2.4][queueIdx % 3]
     this.path = [
       new THREE.Vector3(LANE_NEAR, APRON_IN_Y - 3.5, 0),
       new THREE.Vector3(4.2, APRON_IN_Y, 0),
-      new THREE.Vector3(TANK_POS.x + 3.2, TANK_POS.y, 0),
+      new THREE.Vector3(TANK_POS.x + 3.2, parkY, 0),
     ]
   }
 

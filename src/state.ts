@@ -1,9 +1,9 @@
-export type FuelType = 'benzin' | 'dizel'
+export type FuelType = 'benzin' | 'dizel' | 'lpg'
 
-export const FUEL_PRICE: Record<FuelType, number> = { benzin: 10, dizel: 9 }
-export const FUEL_LABEL: Record<FuelType, string> = { benzin: 'BENZİN', dizel: 'DİZEL' }
-
-export const FUEL_COST_PER_L = 6.5
+export const FUELS: FuelType[] = ['benzin', 'dizel', 'lpg']
+export const FUEL_PRICE: Record<FuelType, number> = { benzin: 10, dizel: 9, lpg: 6 }
+export const FUEL_LABEL: Record<FuelType, string> = { benzin: 'BENZİN', dizel: 'DİZEL', lpg: 'LPG' }
+export const FUEL_COST: Record<FuelType, number> = { benzin: 6.5, dizel: 6, lpg: 4 }
 export const ORDER_ETA = 25 // saniye
 export const FILL_RATE = 7 // L/sn
 export const SPILL_PENALTY_PER_L = 3
@@ -72,8 +72,16 @@ const URANIUM_DRAIN_PER_S = 100 / 300 // tam yük ~5 dakika sürer
 
 export class GameState {
   money = 4000
-  tank = 400
   reputation = 3.0
+
+  /** yakıt türü başına ayrı yer altı tankı */
+  tanks: Record<FuelType, number> = { benzin: 250, dizel: 150, lpg: 100 }
+  /** yakıt türü başına ayrı sipariş/tanker takibi */
+  orders: Record<FuelType, { pending: boolean; eta: number; arrived: boolean }> = {
+    benzin: { pending: false, eta: 0, arrived: false },
+    dizel: { pending: false, eta: 0, arrived: false },
+    lpg: { pending: false, eta: 0, arrived: false },
+  }
 
   pumps = 1
   signLevel = 0
@@ -148,17 +156,12 @@ export class GameState {
   events: string[] = []
   exploded = false
 
-  orderPending = false
-  orderEta = 0
-  orderLiters = 0
-  orderArrived = false
-
   get tankCapacity() { return TANK_CAPACITY[this.tankLevel] }
   get batteryCapacity() { return BATTERY_CAP[this.batteryLevel] }
 
   /** jeneratör şu an gürültü yapıyor mu */
   dieselRunning() {
-    return this.hasDiesel && this.tank > 0 && this.batteryLevel > 0
+    return this.hasDiesel && this.tanks.dizel > 0 && this.batteryLevel > 0
       && this.battery < this.batteryCapacity - 0.01
   }
 
@@ -173,18 +176,21 @@ export class GameState {
   }
 
   tick(dt: number) {
-    if (this.orderPending) {
-      this.orderEta -= dt
-      if (this.orderEta <= 0) {
-        this.orderPending = false
-        this.orderArrived = true
+    for (const f of FUELS) {
+      const o = this.orders[f]
+      if (o.pending) {
+        o.eta -= dt
+        if (o.eta <= 0) {
+          o.pending = false
+          o.arrived = true
+        }
       }
     }
     // batarya şarjı
     if (this.batteryLevel > 0 && this.battery < this.batteryCapacity) {
       this.battery = Math.min(this.batteryCapacity, this.battery + this.genRate() * dt)
       if (this.dieselRunning()) {
-        this.tank = Math.max(0, this.tank - DIESEL_GEN_FUEL_PER_S * dt)
+        this.tanks.dizel = Math.max(0, this.tanks.dizel - DIESEL_GEN_FUEL_PER_S * dt)
       }
     }
     // kirlenme / yıpranma
@@ -270,25 +276,23 @@ export class GameState {
     return Math.min(0.95, Math.max(0.08, c))
   }
 
-  orderNeed() { return Math.floor(this.tankCapacity - this.tank) }
-  orderCost() { return Math.ceil(this.orderNeed() * FUEL_COST_PER_L) }
+  orderNeed(f: FuelType) { return Math.floor(this.tankCapacity - this.tanks[f]) }
+  orderCost(f: FuelType) { return Math.ceil(this.orderNeed(f) * FUEL_COST[f]) }
 
-  canOrder() {
-    return !this.orderPending && this.orderNeed() >= 100 && this.money >= this.orderCost()
+  canOrder(f: FuelType) {
+    return !this.orders[f].pending && this.orderNeed(f) >= 100 && this.money >= this.orderCost(f)
   }
 
-  placeOrder() {
-    if (!this.canOrder()) return false
-    this.money -= this.orderCost()
-    this.orderLiters = this.orderNeed()
-    this.orderPending = true
-    this.orderEta = ORDER_ETA
+  placeOrder(f: FuelType) {
+    if (!this.canOrder(f)) return false
+    this.money -= this.orderCost(f)
+    this.orders[f].pending = true
+    this.orders[f].eta = ORDER_ETA
     return true
   }
 
-  deliverFuel() {
-    this.tank = Math.min(this.tankCapacity, this.tank + this.orderLiters)
-    this.orderLiters = 0
+  deliverFuel(f: FuelType) {
+    this.tanks[f] = this.tankCapacity
   }
 
   addRep(d: number) {
@@ -457,7 +461,7 @@ export function checkAchievements(s: GameState) {
 // ---- Kayıt ----
 
 const SAVE_FIELDS = [
-  'money', 'tank', 'reputation', 'pumps', 'signLevel', 'tankLevel', 'marketLevel', 'toiletLevel',
+  'money', 'reputation', 'pumps', 'signLevel', 'tankLevel', 'marketLevel', 'toiletLevel',
   'gridLevel', 'evChargers', 'batteryLevel', 'battery', 'hasSolar', 'hasDiesel', 'hasSMR',
   'hasWash', 'hasOil', 'hasCoffee', 'hasRestaurant', 'hasTruckPark', 'hasAirWater', 'hasSelfWash', 'hasParking',
   'solarDirt', 'smrWear', 'uranium', 'day', 'dayStartMoney', 'closed',
@@ -466,6 +470,7 @@ const SAVE_FIELDS = [
 export function serializeState(s: GameState): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const f of SAVE_FIELDS) out[f] = (s as any)[f]
+  out.tanks = { ...s.tanks }
   out.ownedParcels = [...s.ownedParcels]
   out.pavedParcels = [...s.pavedParcels]
   out.achievements = [...s.achievements]
@@ -476,6 +481,7 @@ export function hydrateState(s: GameState, data: Record<string, unknown>) {
   for (const f of SAVE_FIELDS) {
     if (f in data) (s as any)[f] = data[f]
   }
+  if (data.tanks && typeof data.tanks === 'object') Object.assign(s.tanks, data.tanks)
   if (Array.isArray(data.ownedParcels)) s.ownedParcels = new Set(data.ownedParcels as string[])
   if (Array.isArray(data.pavedParcels)) s.pavedParcels = new Set(data.pavedParcels as string[])
   if (Array.isArray(data.achievements)) s.achievements = new Set(data.achievements as string[])

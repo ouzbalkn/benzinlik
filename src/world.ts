@@ -261,7 +261,7 @@ export class World {
     const roadMat = aiGround('/gen/ground_asphalt.png', 1.5, 38,
       noiseTex('#4a5058', [['#555c66', 800], ['#3f454c', 800], ['#606874', 200]], 6))
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(130, 110), grassMat)
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(190, 170), grassMat)
     ground.position.x = 8
     ground.receiveShadow = true
     s.add(ground)
@@ -381,8 +381,118 @@ export class World {
       }
     }
 
+    this.buildCountryside()
     this.setSign(0)
     this.addPump(0)
+  }
+
+  /** çevre dolgusu: tarlalar, bağ-bahçe, balyalar, çitler, gölet */
+  private buildCountryside() {
+    const s = this.scene
+    const soil = lam(0x8a6b45)
+    const soilDark = lam(0x775a39)
+    const crop = lam(0x5f9e4e)
+    const vine = lam(0x4a7d3f)
+
+    const field = (cx: number, cy: number, w: number, d: number, planted: boolean) => {
+      const base = new THREE.Mesh(new THREE.PlaneGeometry(w, d), soil)
+      base.position.set(cx, cy, 0.012)
+      base.receiveShadow = true
+      s.add(base)
+      for (let fy = -d / 2 + 0.8; fy < d / 2 - 0.4; fy += 1.6) {
+        const furrow = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.8, 0.55), soilDark)
+        furrow.position.set(cx, cy + fy, 0.018)
+        s.add(furrow)
+        if (planted) {
+          for (let fx = -w / 2 + 1.2; fx < w / 2 - 0.8; fx += 1.5) {
+            const p = new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 5), crop)
+            p.position.set(cx + fx, cy + fy, 0.24)
+            p.scale.z = 0.75
+            s.add(p)
+          }
+        }
+      }
+      // ahşap çit (yol tarafı hariç çevre)
+      const rail = lam(0x8a6a48)
+      for (const [rx, ry, rw, rd] of [
+        [cx, cy + d / 2, w, 0.14], [cx, cy - d / 2, w, 0.14],
+        [cx - w / 2, cy, 0.14, d], [cx + w / 2, cy, 0.14, d],
+      ] as const) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(rw, rd, 0.1), rail)
+        m.position.set(rx, ry, 0.42)
+        s.add(m)
+      }
+      for (let px = -w / 2; px <= w / 2; px += 3) {
+        cyl(0.07, 0.5, 0x77593c, cx + px, cy - d / 2, 0.25, 'z', s)
+        cyl(0.07, 0.5, 0x77593c, cx + px, cy + d / 2, 0.25, 'z', s)
+      }
+    }
+
+    // bağ: sıra sıra asma
+    const vineyard = (cx: number, cy: number, rows: number, len: number) => {
+      for (let r0 = 0; r0 < rows; r0++) {
+        const ry = cy + r0 * 2 - rows
+        for (let vx = -len / 2; vx < len / 2; vx += 1.3) {
+          const v = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.9), vine)
+          v.position.set(cx + vx, ry, 0.45)
+          v.castShadow = true
+          s.add(v)
+        }
+      }
+    }
+
+    // meyve bahçesi
+    const orchard = (cx: number, cy: number, cols: number, rows: number) => {
+      for (let a = 0; a < cols; a++) for (let b = 0; b < rows; b++) {
+        this.placeTree(cx + a * 3.4, cy + b * 3.4, 0.85 + ((a * 7 + b * 3) % 4) * 0.08)
+      }
+    }
+
+    // saman balyaları
+    const bales = (cx: number, cy: number, n: number) => {
+      for (let i = 0; i < n; i++) {
+        const bale = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.9, 12), lam(0xd9b86a))
+        bale.rotation.z = Math.PI / 2
+        bale.position.set(cx + i * 1.9 + (i % 2) * 0.5, cy + (i % 2) * 1.4, 0.55)
+        bale.castShadow = true
+        s.add(bale)
+      }
+    }
+
+    // gölet
+    const pond = (cx: number, cy: number, r: number) => {
+      const w = new THREE.Mesh(new THREE.CircleGeometry(r, 26), lam(0x5f9fc4))
+      w.position.set(cx, cy, 0.014)
+      w.scale.y = 0.72
+      s.add(w)
+      const rim = new THREE.Mesh(new THREE.RingGeometry(r, r + 0.5, 26), lam(0xc9bfa5))
+      rim.position.set(cx, cy, 0.013)
+      rim.scale.y = 0.72
+      s.add(rim)
+      for (let i = 0; i < 5; i++) {
+        const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), lam(0x9aa1a9))
+        rock.position.set(cx + Math.cos(i * 1.9) * (r + 0.4), cy + Math.sin(i * 1.9) * (r + 0.4) * 0.72, 0.2)
+        rock.castShadow = true
+        s.add(rock)
+      }
+    }
+
+    // yerleşim: parseller x -29.5..45.4 / y -24..24, yol x 5.6..10.2 — hepsi dışarıda
+    field(-42, 10, 16, 11, true)
+    field(-41, -13, 14, 10, false)
+    field(57, -4, 15, 12, true)
+    field(20, 34, 18, 10, false)
+    field(-8, -34, 18, 10, true)
+    field(34, -34, 14, 9, false)
+    vineyard(-42, 30, 4, 14)
+    vineyard(56, 18, 3, 12)
+    orchard(48, 28, 3, 3)
+    orchard(-52, -30, 4, 2)
+    orchard(-56, 16, 2, 4)
+    bales(-38, -25.5, 4)
+    bales(52, -20, 3)
+    pond(-36, -30 + 60, 4) // kuzeybatı gölet (y=30)
+    pond(30, -30, 3.2)
   }
 
   /** istasyon kapalı/açık — tabela yeniden çizilir */
@@ -691,11 +801,13 @@ export class World {
         ctx.font = `800 ${fs}px -apple-system, sans-serif`
       }
       ctx.fillText(this.stationName, W / 2, 44)
-      ctx.fillStyle = '#1c2530'; ctx.font = '700 34px -apple-system, sans-serif'
-      ctx.textAlign = 'left'; ctx.fillText('BENZİN', 18, 140)
-      ctx.textAlign = 'right'; ctx.fillText('10.0', W - 18, 140)
-      ctx.textAlign = 'left'; ctx.fillText('DİZEL', 18, 210)
-      ctx.textAlign = 'right'; ctx.fillText('9.0', W - 18, 210)
+      ctx.fillStyle = '#1c2530'; ctx.font = '700 29px -apple-system, sans-serif'
+      ctx.textAlign = 'left'; ctx.fillText('BENZİN', 18, 122)
+      ctx.textAlign = 'right'; ctx.fillText('10.0', W - 18, 122)
+      ctx.textAlign = 'left'; ctx.fillText('DİZEL', 18, 168)
+      ctx.textAlign = 'right'; ctx.fillText('9.0', W - 18, 168)
+      ctx.textAlign = 'left'; ctx.fillText('LPG', 18, 214)
+      ctx.textAlign = 'right'; ctx.fillText('6.0', W - 18, 214)
       if (this.closedFlag) {
         ctx.fillStyle = '#d64545'
         ctx.fillRect(0, 238, W, 50)

@@ -3,7 +3,7 @@ import { World, PUMP_SLOTS_POS, EV_SLOTS_POS } from './world'
 import { Car, CarManager, Tanker } from './cars'
 import { UI, BuildingCard } from './ui'
 import {
-  FuelType, FUEL_LABEL, FUEL_PRICE, GameState, FILL_RATE, SPILL_PENALTY_PER_L, WRONG_FUEL_PENALTY,
+  FuelType, FUELS, FUEL_LABEL, FUEL_PRICE, GameState, FILL_RATE, SPILL_PENALTY_PER_L, WRONG_FUEL_PENALTY,
   EV_PRICE_PER_KWH, TANK_CAPACITY, URANIUM_COST, PARCEL_COLS, PARCEL_ROWS, PAVE_COST,
   parcelKey, parcelCost, buyItem, doMaintenance, getShopItems, serializeState, hydrateState, checkAchievements,
 } from './state'
@@ -55,7 +55,7 @@ window.addEventListener('resize', resize)
 window.addEventListener('wheel', e => {
   // UI panellerinin üzerindeyken oyuna zoom geçirme (modal içinde scroll serbest)
   if ((e.target as HTMLElement).closest?.('.backdrop, .modal, #panel, #infocard, .hud')) return
-  camera.zoom = Math.min(2.6, Math.max(0.5, camera.zoom * Math.exp(-e.deltaY * 0.0012)))
+  camera.zoom = Math.min(2.6, Math.max(0.78, camera.zoom * Math.exp(-e.deltaY * 0.0012)))
   camera.updateProjectionMatrix()
 }, { passive: true })
 resize()
@@ -68,7 +68,7 @@ const world = new World(staticLib)
 const state = new GameState()
 const ui = new UI()
 ui.batteryKwh = () => state.battery
-let tanker: Tanker | null = null
+const tankers: { t: Tanker; fuel: FuelType }[] = []
 let exploding = false
 let selectedBuilding: string | null = null
 let cardRefreshT = 0
@@ -114,7 +114,7 @@ function buildHose(car: Car): THREE.Group {
   tube.castShadow = true
   g.add(tube)
   const tip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.24),
-    new THREE.MeshLambertMaterial({ color: car.nozzle === 'benzin' ? 0x2fa05a : 0xe8862e }))
+    new THREE.MeshLambertMaterial({ color: car.nozzle === 'benzin' ? 0x2fa05a : car.nozzle === 'dizel' ? 0xe8862e : 0x2f6fed }))
   tip.position.copy(end)
   tip.position.z += 0.12
   g.add(tip)
@@ -379,8 +379,8 @@ ui.onChargeEV = car => {
 
 // ---- Sipariş, inşaat, bakım ----
 
-ui.onOrder = () => {
-  if (state.placeOrder()) ui.toast('🚛 Tanker yola çıktı!', 'good')
+ui.onOrderFuel = f => {
+  if (state.placeOrder(f)) ui.toast(`${FUEL_LABEL[f]} tankeri yola çıktı!`, 'good')
 }
 
 /** satın alma sonrası sahnedeki görsel karşılığını kurar */
@@ -792,7 +792,7 @@ if (isFullMode) {
     if (buyItem(state, id)) buildVisual(id)
   }
   state.money = 50_000
-  state.tank = state.tankCapacity
+  for (const f of FUELS) state.tanks[f] = state.tankCapacity
   state.battery = state.batteryCapacity
   ui.toast('🧪 FULL MOD: her şey kurulu — sürükleyerek gez, tekerlekle yaklaş!', 'good')
 }
@@ -892,9 +892,10 @@ function buildingCard(id: string): BuildingCard | null {
         icon: 'i-tank', name: 'Yakıt Tankı',
         desc: 'Sattığın benzin ve dizel buradan çıkar. Bitirmeden tanker siparişi vermeyi unutma.',
         stats: [
-          ['Doluluk', `${Math.round(state.tank)}L / ${state.tankCapacity}L`, state.tank < state.tankCapacity * 0.15 ? 'bad' : ''],
+          ['Benzin', `${Math.round(state.tanks.benzin)} / ${state.tankCapacity}L`, state.tanks.benzin < state.tankCapacity * 0.15 ? 'bad' : ''],
+          ['Dizel', `${Math.round(state.tanks.dizel)} / ${state.tankCapacity}L`, state.tanks.dizel < state.tankCapacity * 0.15 ? 'bad' : ''],
+          ['LPG', `${Math.round(state.tanks.lpg)} / ${state.tankCapacity}L`, state.tanks.lpg < state.tankCapacity * 0.15 ? 'bad' : ''],
           ['Kapasite seviyesi', `${state.tankLevel + 1}/4 (maks ${TANK_CAPACITY[3]}L)`],
-          ['Yakıt maliyeti', '₺6.5/L'],
         ],
       }
     case 'battery':
@@ -1243,18 +1244,21 @@ function frame() {
     }
   }
 
-  if (state.orderArrived) {
-    state.orderArrived = false
-    tanker = new Tanker(world.scene, modelLib)
-  }
-  if (tanker) {
-    if (tanker.update(dt)) {
-      state.deliverFuel()
-      ui.toast('⛽ Ana tank dolduruldu!', 'good')
+  for (const f of FUELS) {
+    if (state.orders[f].arrived) {
+      state.orders[f].arrived = false
+      tankers.push({ t: new Tanker(world.scene, modelLib, f, tankers.length), fuel: f })
     }
-    if (tanker.done) {
-      world.scene.remove(tanker.group)
-      tanker = null
+  }
+  for (let i = tankers.length - 1; i >= 0; i--) {
+    const { t, fuel } = tankers[i]
+    if (t.update(dt)) {
+      state.deliverFuel(fuel)
+      ui.toast(`${FUEL_LABEL[fuel]} tankı dolduruldu!`, 'good')
+    }
+    if (t.done) {
+      world.scene.remove(t.group)
+      tankers.splice(i, 1)
     }
   }
 
@@ -1262,14 +1266,14 @@ function frame() {
   for (const c of [...cars.cars]) {
     if (c.phase === 'atPump' && c.kind === 'fuel') c.beingServed = c.filling
     if (!(c.filling && c.kind === 'fuel' && c.phase === 'atPump' && c.nozzle && !c.wrongFuelHandled)) continue
-    if (state.tank <= 0) {
-      ui.toast('🛢️ Ana tank boş kaldı! Satış yarım kaldı.', 'bad')
+    if (state.tanks[c.nozzle] <= 0) {
+      ui.toast(`${FUEL_LABEL[c.nozzle]} tankı boş kaldı! Satış yarım kaldı — sipariş ver.`, 'bad')
       finishSale(c)
       continue
     }
-    const amount = Math.min(FILL_RATE * dt, state.tank)
+    const amount = Math.min(FILL_RATE * dt, state.tanks[c.nozzle])
     c.filled += amount
-    state.tank -= amount
+    state.tanks[c.nozzle] -= amount
     if (c.nozzle !== c.demandType && c.filled > 1.5) {
       wrongFuel(c)
     } else if (c.filledValue >= c.targetAmount) {

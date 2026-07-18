@@ -1,5 +1,5 @@
 import { Car } from './cars'
-import { FuelType, FUEL_LABEL, GameState, getShopItems, getMaintenanceItems } from './state'
+import { FuelType, FUELS, FUEL_LABEL, GameState, getShopItems, getMaintenanceItems } from './state'
 
 function el<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T
@@ -70,7 +70,7 @@ export class UI {
   onNozzle: (car: Car, type: FuelType) => void = () => {}
   onStart: (car: Car, amount: number) => void = () => {}
   onChargeEV: (car: Car) => void = () => {}
-  onOrder: () => void = () => {}
+  onOrderFuel: (f: FuelType) => void = () => {}
   onBuy: (id: string) => void = () => {}
   onMaint: (id: string) => void = () => {}
   onRename: (name: string) => void = () => {}
@@ -82,8 +82,7 @@ export class UI {
 
   private money = el<HTMLSpanElement>('money')
   private day = el<HTMLSpanElement>('day')
-  private tankL = el<HTMLSpanElement>('tankL')
-  private tankFill = el<HTMLDivElement>('tankfill')
+
   private battChip = el<HTMLDivElement>('battchip')
   private battFill = el<HTMLDivElement>('battfill')
   private battKwh = el<HTMLSpanElement>('battkwh')
@@ -108,6 +107,7 @@ export class UI {
   private startBtn = el<HTMLButtonElement>('startbtn')
   private nozBenzin = el<HTMLButtonElement>('noz-benzin')
   private nozDizel = el<HTMLButtonElement>('noz-dizel')
+  private nozLpg = el<HTMLButtonElement>('noz-lpg')
   private infoCard = el<HTMLDivElement>('infocard')
   private infoAction = el<HTMLButtonElement>('binfo-action')
   private infoMove = el<HTMLButtonElement>('binfo-move')
@@ -119,7 +119,12 @@ export class UI {
   private shopCat = 'istasyon'
 
   constructor() {
-    this.orderBtn.addEventListener('click', () => this.onOrder())
+    const fuelWrap = el<HTMLDivElement>('fuelwrap')
+    this.orderBtn.addEventListener('click', () => fuelWrap.classList.add('show'))
+    fuelWrap.addEventListener('pointerdown', e => { if (e.target === fuelWrap) fuelWrap.classList.remove('show') })
+    for (const f of FUELS) {
+      el<HTMLButtonElement>(`fbtn-${f}`).addEventListener('click', () => this.onOrderFuel(f))
+    }
     this.closeBtn.addEventListener('click', () => this.onToggleClosed())
 
     // modallar
@@ -168,6 +173,7 @@ export class UI {
     // servis paneli
     this.nozBenzin.addEventListener('click', () => this.pickNozzle('benzin'))
     this.nozDizel.addEventListener('click', () => this.pickNozzle('dizel'))
+    this.nozLpg.addEventListener('click', () => this.pickNozzle('lpg'))
     for (const b of document.querySelectorAll<HTMLButtonElement>('.quick')) {
       b.addEventListener('click', () => {
         this.amount.value = b.dataset.amt ?? ''
@@ -252,9 +258,11 @@ export class UI {
     this.demand.textContent = `Müşteri isteği: ₺${car.demandAmount} ${FUEL_LABEL[car.demandType]}`
     this.nozBenzin.classList.toggle('sel', car.nozzle === 'benzin')
     this.nozDizel.classList.toggle('sel', car.nozzle === 'dizel')
+    this.nozLpg.classList.toggle('sel', car.nozzle === 'lpg')
     const locked = car.filled > 0 || car.filling
     this.nozBenzin.disabled = locked
     this.nozDizel.disabled = locked
+    this.nozLpg.disabled = locked
     this.amount.disabled = car.filling
     const amt = Math.floor(Number(this.amount.value))
     this.startBtn.disabled = !car.nozzle || !(amt > 0) || car.filling || car.filled > 0
@@ -339,9 +347,33 @@ export class UI {
   update(state: GameState, dt: number) {
     this.money.textContent = Math.round(state.money).toLocaleString('tr-TR')
     this.day.textContent = `${state.day}`
-    this.tankL.textContent = `${Math.round(state.tank)}L`
-    this.tankFill.style.width = `${(state.tank / state.tankCapacity) * 100}%`
     this.rep.textContent = state.reputation.toFixed(1)
+
+    // yakıt türü başına tank barları + sipariş modalı satırları
+    let anyLow = false
+    for (const f of FUELS) {
+      const lvl = state.tanks[f]
+      if (lvl < state.tankCapacity * 0.15) anyLow = true
+      el<HTMLDivElement>(`fill-${f}`).style.width = `${(lvl / state.tankCapacity) * 100}%`
+      el<HTMLSpanElement>(`lvl-${f}`).textContent = `${Math.round(lvl)}`
+      const o = state.orders[f]
+      const need = state.orderNeed(f)
+      const btn = el<HTMLButtonElement>(`fbtn-${f}`)
+      const info = el<HTMLDivElement>(`fneed-${f}`)
+      if (o.pending) {
+        info.textContent = `Tanker yolda — ${Math.ceil(o.eta)} sn`
+        btn.textContent = 'Yolda'
+        btn.disabled = true
+      } else if (need < 100) {
+        info.textContent = 'Tank dolu'
+        btn.textContent = 'Dolu'
+        btn.disabled = true
+      } else {
+        info.textContent = `${Math.round(state.tanks[f])} / ${state.tankCapacity}L — ${need}L eksik`
+        btn.textContent = `₺${state.orderCost(f).toLocaleString('tr-TR')}`
+        btn.disabled = !state.canOrder(f)
+      }
+    }
 
     this.closeLabel.textContent = state.closed ? 'KAPALI' : 'Açık'
     this.closeBtn.classList.toggle('danger', state.closed)
@@ -352,16 +384,9 @@ export class UI {
       this.battKwh.textContent = `${Math.floor(state.battery)}/${state.batteryCapacity}`
     }
 
-    if (state.orderPending) {
-      this.orderLabel.textContent = `Yolda · ${Math.ceil(state.orderEta)}sn`
-      this.orderBtn.disabled = true
-    } else {
-      const need = state.orderNeed()
-      this.orderLabel.textContent = need < 100
-        ? 'Tank dolu'
-        : `Sipariş · ${need}L · ₺${state.orderCost().toLocaleString('tr-TR')}`
-      this.orderBtn.disabled = !state.canOrder()
-    }
+    this.orderLabel.textContent = 'Yakıt Siparişi'
+    this.orderBtn.classList.toggle('danger', anyLow)
+    this.orderBtn.classList.toggle('warn', !anyLow)
 
     const maintCount = getMaintenanceItems(state).filter(m => !m.disabled).length
     this.shopLabel.textContent = 'İnşaat'

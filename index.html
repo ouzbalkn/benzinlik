@@ -233,7 +233,9 @@
   <div class="hud">
     <div class="chip"><span class="cl">GÜN</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="day">1</span></span></div>
     <div class="chip"><span class="cl">KASA</span><span class="cv"><svg class="ic"><use href="#i-coin"/></svg> <span id="money">0</span> ₺</span></div>
-    <div class="chip"><span class="cl">YAKIT TANKI</span><span class="cv"><svg class="ic"><use href="#i-fuel"/></svg> <div class="bar"><div id="tankfill"></div></div> <span id="tankL">0L</span></span></div>
+    <div class="chip"><span class="cl">BENZİN</span><span class="cv"><svg class="ic" style="color:var(--green)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-benzin" style="background:var(--green)"></div></div> <span id="lvl-benzin">0</span></span></div>
+    <div class="chip"><span class="cl">DİZEL</span><span class="cv"><svg class="ic" style="color:var(--orange)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-dizel" style="background:var(--orange)"></div></div> <span id="lvl-dizel">0</span></span></div>
+    <div class="chip"><span class="cl">LPG</span><span class="cv"><svg class="ic" style="color:var(--blue)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-lpg" style="background:var(--blue)"></div></div> <span id="lvl-lpg">0</span></span></div>
     <div class="chip" id="battchip"><span class="cl">BATARYA</span><span class="cv"><svg class="ic"><use href="#i-batt"/></svg> <div class="bar"><div id="battfill"></div></div> <span id="battkwh">0</span></span></div>
     <div class="chip"><span class="cl">İTİBAR</span><span class="cv"><svg class="ic"><use href="#i-star"/></svg> <span id="rep">3.0</span></span></div>
     <div class="spacer"></div>
@@ -249,6 +251,7 @@
       <div class="row">
         <button id="noz-benzin" class="btn good nozzle">Benzin</button>
         <button id="noz-dizel" class="btn warn nozzle">Dizel</button>
+        <button id="noz-lpg" class="btn nozzle" style="background:var(--blue);border-color:#1e4bb0;color:#fff">LPG</button>
       </div>
       <div class="row">
         <button class="btn quick" data-amt="100">₺100</button>
@@ -301,6 +304,33 @@
       </div>
       <div class="mbody">
         <div id="shoplist"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="fuelwrap">
+    <div class="modal" style="height:auto; max-height:84vh">
+      <div class="mhead">
+        <h3>Yakıt Siparişi</h3>
+        <button class="mclose" data-close="fuelwrap"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="mbody">
+        <div class="shoprow">
+          <div class="sicon" style="color:var(--green);background:#27a05a1c;border-color:#27a05a44"><svg class="ic"><use href="#i-fuel"/></svg></div>
+          <div class="sinfo"><div class="st">Benzin</div><div class="sd" id="fneed-benzin">—</div></div>
+          <button class="btn sbuy good" id="fbtn-benzin">Sipariş</button>
+        </div>
+        <div class="shoprow">
+          <div class="sicon" style="color:var(--orange);background:#e8862e1c;border-color:#e8862e44"><svg class="ic"><use href="#i-fuel"/></svg></div>
+          <div class="sinfo"><div class="st">Dizel (Mazot)</div><div class="sd" id="fneed-dizel">—</div></div>
+          <button class="btn sbuy warn" id="fbtn-dizel">Sipariş</button>
+        </div>
+        <div class="shoprow">
+          <div class="sicon" style="color:var(--blue);background:#2f6fed1c;border-color:#2f6fed44"><svg class="ic"><use href="#i-fuel"/></svg></div>
+          <div class="sinfo"><div class="st">LPG</div><div class="sd" id="fneed-lpg">—</div></div>
+          <button class="btn sbuy primary" id="fbtn-lpg">Sipariş</button>
+        </div>
+        <div class="sd" style="text-align:center; padding:6px 0 2px">Her yakıtın tankeri ayrı gelir ve ayrı boşaltır — üçüne de sen yetişeceksin.</div>
       </div>
     </div>
   </div>
