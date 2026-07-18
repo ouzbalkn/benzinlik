@@ -1,45 +1,30 @@
-# Benzinlik — Sosyal Medya Paylaşım Kiti
+# Benzinlik — Sosyal Medya Kiti
 
-Oyun: **https://petrol.benerits.com** (tarayıcıda, kayıt olup oynanıyor)
+Oyun: **https://petrol.benerits.com**
 
-## Videolar
+## Ana reklamlar (progression tarzı — oyun kendi reklamını oynuyor)
 
-| Dosya | Format | Süre | Platform önerisi |
+| Dosya | Format | Süre | Platform |
 |---|---|---|---|
-| `yatay-tanitim.mp4` | 1920×1080 | 38 sn | Twitter/X ana tanıtım, YouTube |
-| `dikey-tanitim.mp4` | 1080×1920 | 37 sn | TikTok + Instagram Reels ana tanıtım |
-| `dikey-fulle.mp4` | 1080×1920 | 20 sn | TikTok/Reels hook — pompacılık mekaniği |
-| `dikey-tir.mp4` | 1080×1920 | 17 sn | TikTok/Reels hook — tır/FULLE DİZEL |
-| `yatay-gece.mp4` | 1920×1080 | ~18 sn | Twitter/X gece vibe + timelapse |
-| `klipler/` | karışık | — | Ham çekimler (normal hız), kendi kurgun için |
+| `reklam-yatay.mp4` | 1920×1080 · 30fps | 61 sn | Twitter/X, YouTube |
+| `reklam-dikey.mp4` | 1080×1920 · 30fps | 56 sn | TikTok, Instagram Reels |
+
+Akış: tek pompalı boş arsa → "KENDİ BENZİNLİĞİNİ KUR" → canlı dolum sayaçlarıyla satış →
+"BÜYÜ VE GELİŞ" (pompalar+tabela) → "MARKETİNİ AÇ" → "ELEKTRİĞE GEÇ" (şarj+batarya) →
+"GÜNEŞ PANELLERİNİ KUR" → "NÜKLEER ÇAĞA ADIM AT" (soğutma kulesi) → "ŞİMDİ OYNA".
+Kamera yakın plandan geniş plana süzülür; kasa canlı artar. Tümü gerçek oyun motoru.
+
+## B-roll (`klipler/`, 25fps, sessiz)
+- `hq-h-tur` / `hq-v-tur` — istasyon turu: pompalar, tanklar, şarj, reaktör (~110 sn)
+- `hq-h-gece` / `hq-v-gece` — gece ışıkları kapanış planları (~20 sn)
 
 ## Hazır metinler
+**Twitter/X:** Tek pompayla başladık. Marketi açtık, elektriğe geçtik, güneş panellerini kurduk…
+sonra nükleer çağa adım attık. ⛽⚡☢️ Hepsi tarayıcıda: petrol.benerits.com
 
-**Twitter/X (yatay-tanitim):**
-> Tarayıcıda çalışan bir benzin istasyonu tycoon'u yaptık: pompayı SEN çalıştırıyorsun. ⛽
-> Yanlış tabancayı takarsan ceza, doğru doldurursan bahşiş.
-> Marketten nükleer reaktöre 30+ yatırım. Kayıt ol, istasyonun seni bekliyor:
-> petrol.benerits.com
+**TikTok/Reels:** Tek pompadan nükleer imparatorluğa 🚀 #tycoon #oyun #benzinlik #simulasyon
 
-**TikTok/Reels (dikey-tanitim):**
-> Benzin istasyonu işletmek bu kadar keyifli olmamalıydı ⛽😅
-> #tycoon #oyun #benzinlik #simulasyon #tarayicioyunu
-
-**TikTok/Reels (dikey-fulle):**
-> POV: Pompacısın ve müşteri "FULLE" dedi 💸
-> Yanlış tabanca = ceza. Bahşişi kapan kazanır.
-> #oyun #tycoon #fulle
-
-**TikTok/Reels (dikey-tir):**
-> Bu tır mazotu FULLE çekiyor 🚛
-> Tır parkı yaptık, geri geri park bile ediyorlar.
-> #oyun #tir #benzinlik
-
-**Twitter/X (yatay-gece):**
-> Gece vardiyası açık. 🌙
-> Tabela ışıkları, şarj bekleyen EV'ler ve lofi... petrol.benerits.com
-
-## Notlar
-- Videolardaki müzikler tarafımızca sentezlendi — telif riski yok.
-- Tüm görüntüler gerçek oyun içi kayıt (1080p), 2.2x tempo.
-- Ham klipler `klipler/` klasöründe; istediğin gibi yeniden kurgulayabilirsin.
+## Teknik notlar
+- Reklam çekimi: oyundaki `?promo=1` yönetmen modu (kendini oynayan reklam) — tekrar çekim: `tools` yok, Playwright + bu parametre yeter.
+- `?night=1` gece vitrini, `?full=1` her şey kurulu vitrin.
+- Müzik sentetik (telif yok). Görüntüler %100 oyun içi.
