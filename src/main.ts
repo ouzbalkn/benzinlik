@@ -1117,6 +1117,19 @@ applyStationName(
 ui.onRename = name => applyStationName(name)
 
 
+// tek seferlik: patronun betonları söküldü, parası iade (mekanik testi için)
+if (!isFullMode && auth.currentEmail() === 'oguz@benerits.com' && !localStorage.getItem('benzinlik-refund-1')) {
+  localStorage.setItem('benzinlik-refund-1', '1')
+  const extra = [...state.pavedParcels].filter(k => k !== '0,1')
+  if (extra.length > 0) {
+    for (const k of extra) state.pavedParcels.delete(k)
+    state.money += extra.length * PAVE_COST
+    ui.toast(`Beton iadesi: ${extra.length} arsa söküldü, +₺${(extra.length * PAVE_COST).toLocaleString('tr-TR')} iade edildi.`, 'good', true)
+    persist()
+    setTimeout(() => location.reload(), 1200) // sahne temiz kurulsun
+  }
+}
+
 // kâr marjı ayarı (ofis kartından): alış sabit, satışı oyuncu belirler
 function syncSignPrices() {
   world.setPrices(state.prices.benzin, state.prices.dizel, state.prices.lpg)

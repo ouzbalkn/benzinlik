@@ -756,6 +756,8 @@ export class World {
     this.scene.add(p)
   }
 
+  private ownedMarks = new Map<string, THREE.Group>()
+
   /** satın alınan (henüz betonsuz) arsayı ahşap kazık + ip sınırla işaretle */
   markOwned(c: number, r: number) {
     const [x0, x1] = PARCEL_COLS[c]
@@ -791,10 +793,16 @@ export class World {
     plate.position.set(x0 + 0.6, y0 + 0.9, 0.9)
     g.add(plate)
     this.scene.add(g)
+    this.ownedMarks.set(`${c},${r}`, g)
   }
 
-  /** arsaya beton döşe (yapı kurmanın ön şartı) */
+  /** arsaya beton döşe (yapı kurmanın ön şartı) — kazık/ip sınırları kaldırılır */
   paveParcel(c: number, r: number) {
+    const mark = this.ownedMarks.get(`${c},${r}`)
+    if (mark) {
+      this.scene.remove(mark)
+      this.ownedMarks.delete(`${c},${r}`)
+    }
     const [x0, x1] = PARCEL_COLS[c]
     const [y0, y1] = PARCEL_ROWS[r]
     const w = x1 - x0, d = y1 - y0
