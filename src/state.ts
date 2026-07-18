@@ -548,6 +548,7 @@ export function serializeState(s: GameState): Record<string, unknown> {
   for (const f of SAVE_FIELDS) out[f] = (s as any)[f]
   out.tanks = { ...s.tanks }
   out.prices = { ...s.prices }
+  out.orders = JSON.parse(JSON.stringify(s.orders)) // bekleyen tankerler F5'te kaybolmasın
   out.pendingCash = { ...s.pendingCash }
   out.ownedParcels = [...s.ownedParcels]
   out.pavedParcels = [...s.pavedParcels]
@@ -560,6 +561,16 @@ export function hydrateState(s: GameState, data: Record<string, unknown>) {
     if (f in data) (s as any)[f] = data[f]
   }
   if (data.tanks && typeof data.tanks === 'object') Object.assign(s.tanks, data.tanks)
+  if (data.orders && typeof data.orders === 'object') {
+    for (const f of FUELS) {
+      const o = (data.orders as Record<string, { pending?: boolean; eta?: number; arrived?: boolean }>)[f]
+      if (o) {
+        s.orders[f].pending = !!o.pending
+        s.orders[f].eta = Math.min(60, Math.max(0, Number(o.eta) || 0))
+        s.orders[f].arrived = !!o.arrived
+      }
+    }
+  }
   if (data.prices && typeof data.prices === 'object') {
     Object.assign(s.prices, data.prices)
     for (const f of FUELS) {
