@@ -1,3 +1,6 @@
 node_modules
 dist
 .DS_Store
+# tanıtım videoları repoya girmez (yedek: yerel promo/)
+promo/*.mp4
+promo/klipler/

@@ -123,6 +123,8 @@ const [modelLib, staticLib] = await Promise.all([loadModels(), loadStatics()])
 const world = new World(staticLib)
 const state = new GameState()
 world.isPavedFn = (c, r) => state.isPaved(c, r)
+const isPromoMode = new URLSearchParams(location.search).has('promo')
+let promoTick: ((dt: number) => void) | null = null
 const ui = new UI()
 ui.batteryKwh = () => state.battery
 ui.tankerStatus = () => {
@@ -156,7 +158,7 @@ composer.setSize(window.innerWidth, window.innerHeight)
 const cars = new CarManager(world.scene, modelLib, {
   pumpCount: () => state.pumps,
   evCount: () => state.evChargers,
-  entryChance: () => state.entryChance(),
+  entryChance: () => state.entryChance() * (isPromoMode ? 2.5 : 1),
   evShare: () => (state.evChargers > 0 ? Math.min(0.5, 0.15 + 0.09 * state.evChargers) * state.evPriceFactor() : 0),
   isPumpBroken: i => state.brokenPumps.has(i),
   isChargerBroken: i => state.brokenChargers.has(i),
@@ -646,7 +648,7 @@ function savePayload() {
 }
 
 function persist() {
-  if (isFullMode) return
+  if (isFullMode || isPromoMode) return
   // tek gerçek kaynak SQL: yerel kopya tutulmaz, eski veri asla hortlamaz
   if (auth.loggedIn() && Date.now() - lastRemotePush > 5_000) {
     lastRemotePush = Date.now()
@@ -1179,7 +1181,7 @@ function buyToast(id: string) {
 // 🧪 FULL / vitrin modu: ?full=1 ile her şey kurulu başlar
 const isFullMode = new URLSearchParams(location.search).has('full')
 let saveLoaded = false
-if (!isFullMode && auth.loggedIn()) {
+if (!isFullMode && !isPromoMode && auth.loggedIn()) {
   try {
     const remote = await auth.pullSave()
     if (remote) {
@@ -1192,7 +1194,7 @@ if (!isFullMode && auth.loggedIn()) {
   }
 }
 if (saveLoaded) rebuildFromState()
-else if (!isFullMode) ui.toast('Sıfırdan başlıyorsun — hayırlı olsun patron!', 'good', true)
+else if (!isFullMode && !isPromoMode) ui.toast('Sıfırdan başlıyorsun — hayırlı olsun patron!', 'good', true)
 // eski yerel kayıt kalıntılarını temizle (artık her şey SQL'de)
 for (const key of Object.keys(localStorage)) {
   if (key.startsWith('benzinlik-save-v1')) localStorage.removeItem(key)
@@ -1837,7 +1839,8 @@ function handleClick(e: PointerEvent) {
 
 // ---- Oyun döngüsü ----
 const clock = new THREE.Clock()
-let dayTime = 0
+// vitrin: ?night=1 gece ortasından başlatır (tanıtım çekimi / ekran görüntüsü)
+let dayTime = new URLSearchParams(location.search).has('night') ? 100 : 0
 let prevCycleT = 0
 let achieveT = 2
 let saveT = 5
@@ -1853,6 +1856,7 @@ function nightFactor(t: number): number {
 function frame() {
   requestAnimationFrame(frame)
   const dt = Math.min(clock.getDelta(), 0.05)
+  promoTick?.(dt)
   if (exploding) { composer!.render(); return }
 
   dayTime += dt
@@ -2036,3 +2040,68 @@ function frame() {
   composer!.render()
 }
 frame()
+
+
+// 🎬 REKLAM MODU (?promo=1): oyun kendi reklamını oynar — tek pompadan nükleer çağa.
+if (isPromoMode) {
+  state.money = 9000
+  const cap = document.createElement('div')
+  cap.id = 'promocap'
+  cap.style.cssText =
+    'position:fixed;left:50%;transform:translateX(-50%);bottom:11%;z-index:60;width:94vw;' +
+    "font-family:'Baloo 2',sans-serif;font-weight:800;color:#fff;text-align:center;" +
+    'text-shadow:0 3px 0 rgba(28,37,48,.95),0 10px 28px rgba(0,0,0,.55);' +
+    'font-size:min(7.2vw,86px);line-height:1.1;opacity:0;transition:opacity .5s;pointer-events:none'
+  document.body.appendChild(cap)
+  const say = (t: string) => {
+    cap.style.opacity = '0'
+    setTimeout(() => { cap.innerHTML = t; cap.style.opacity = '1' }, 480)
+  }
+  const buy = (id: string) => {
+    if (!buyItem(state, id)) { state.money += 500_000; buyItem(state, id) }
+    buildVisual(id)
+    try { audio.build() } catch { /* ses yoksa sessiz geç */ }
+  }
+  const beats: [number, () => void][] = [
+    [1.0, () => say('KENDİ BENZİNLİĞİNİ KUR')],
+    [6.0, () => say('YAKIT SATMAYA BAŞLA')],
+    [13, () => { say('BÜYÜ VE GELİŞ'); buy('pump') }],
+    [15, () => buy('pump')],
+    [17, () => { buy('pump'); buy('sign') }],
+    [19, () => { buy('sign'); buy('tank') }],
+    [21.5, () => { say('MARKETİNİ AÇ, MÜŞTERİYİ TUT'); buy('market'); buy('toilet') }],
+    [24, () => { buy('wash'); buy('coffee') }],
+    [26.5, () => buy('market')],
+    [29, () => { say('ELEKTRİĞE GEÇ'); buy('grid'); buy('battery') }],
+    [31.5, () => { buy('evcharger'); buy('evcharger') }],
+    [34, () => { buy('grid'); buy('evcharger') }],
+    [37, () => { say('GÜNEŞ PANELLERİNİ KUR'); buy('solar') }],
+    [40, () => { buy('airwater'); buy('selfwash') }],
+    [43, () => { say('NÜKLEER ÇAĞA ADIM AT'); buy('smr') }],
+    [49, () => say('BENZİNLİK İMPARATORLUĞUNU KUR')],
+    [55, () => say('ŞİMDİ OYNA<br><span style="color:#ffd24d">petrol.benerits.com</span>')],
+  ]
+  let bi = 0
+  let pt = 0
+  promoTick = dt => {
+    pt += dt
+    while (bi < beats.length && pt >= beats[bi][0]) { beats[bi][1](); bi++ }
+    // kasa reklam boyunca dolar — büyüme hissi
+    state.money += dt * (1800 + pt * 160)
+    // kamera: yakın plandan geniş plana süzülür
+    camera.zoom = 1.85 - Math.min(1, pt / 46) * 1.02
+    camera.updateProjectionMatrix()
+    // müşteriler reklamda kendiliğinden karşılanır
+    for (const c of cars.cars) {
+      if (c.phase !== 'atPump') continue
+      if (c.kind === 'fuel' && !c.filling && c.filled === 0 && !c.wrongFuelHandled) {
+        c.nozzle = c.demandType
+        c.fullMode = true
+        c.filling = true
+        c.beingServed = true
+      } else if (c.kind === 'ev' && !c.charging && c.chargedKwh === 0 && !c.squatting) {
+        startCharging(c, true)
+      }
+    }
+  }
+}
