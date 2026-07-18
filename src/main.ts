@@ -17,6 +17,44 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1) // z yukarı
 
+// ---- ÖNCE GİRİŞ: hesap yoksa oyun motoru hiç başlamaz ----
+{
+  const gated = !new URLSearchParams(location.search).has('full') && !localStorage.getItem('benzinlik-token')
+  if (gated) {
+    const gate = document.getElementById('authgate') as HTMLDivElement
+    gate.style.display = 'flex'
+    gate.classList.add('solid')
+    const gErr = document.getElementById('agerr') as HTMLDivElement
+    const gEmail = document.getElementById('gemail') as HTMLInputElement
+    const gPass = document.getElementById('gpass') as HTMLInputElement
+    const wire = (id: string, path: string) => {
+      (document.getElementById(id) as HTMLButtonElement).addEventListener('click', async () => {
+        gErr.textContent = ''
+        try {
+          const res = await fetch(path, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email: gEmail.value, password: gPass.value }),
+          })
+          const d = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(d.error ?? 'Sunucuya ulaşılamadı.')
+          localStorage.setItem('benzinlik-token', d.token)
+          localStorage.setItem('benzinlik-email', d.email)
+          location.reload()
+        } catch (err) {
+          gErr.textContent = (err as Error).message
+        }
+      })
+    }
+    wire('glogin', '/api/login')
+    wire('gregister', '/api/register')
+    gPass.addEventListener('keydown', e => {
+      if (e.key === 'Enter') (document.getElementById('glogin') as HTMLButtonElement).click()
+    })
+    await new Promise(() => {}) // giriş yapılana dek modül burada durur
+  }
+}
+
 const app = document.getElementById('app')!
 const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)) // performans: 2x retina yerine 1.5x yeterli
@@ -919,25 +957,8 @@ async function doRegister(email: string, pass: string) {
   location.reload()
 }
 
-const gateEl = document.getElementById('authgate') as HTMLDivElement
-if (!isFullMode && !auth.loggedIn()) {
-  gateEl.style.display = 'flex'
-  const gErr = document.getElementById('agerr') as HTMLDivElement
-  const gEmail = document.getElementById('gemail') as HTMLInputElement
-  const gPass = document.getElementById('gpass') as HTMLInputElement
-  const wire = (id: string, fn: (e: string, p: string) => Promise<void>) => {
-    (document.getElementById(id) as HTMLButtonElement).addEventListener('click', async () => {
-      gErr.textContent = ''
-      try { await fn(gEmail.value, gPass.value) } catch (err) { gErr.textContent = (err as Error).message }
-    })
-  }
-  wire('glogin', doLogin)
-  wire('gregister', doRegister)
-  gPass.addEventListener('keydown', e => {
-    if (e.key === 'Enter') (document.getElementById('glogin') as HTMLButtonElement).click()
-  })
-} else {
-  gateEl.remove()
+document.getElementById('authgate')?.remove()
+{
 
   // ---- Günlük giriş bonusu + seri + görev sıfırlama ----
   const today = new Date().toISOString().slice(0, 10)

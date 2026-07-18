@@ -159,6 +159,10 @@ export class Car {
   /** pompa bu araca aktif dolum yapıyor (pompalar bağımsız çalışır) */
   filling = false
   slotIndex = -1
+  /** rezerve edilen bekleme noktası (yoksa -1) */
+  waitIndex = -1
+  /** öndeki araca çok yaklaştıysa bu karede bekle (üst üste binme yok) */
+  hold = false
   wrongFuelHandled = false
   beingServed = false
 
@@ -272,7 +276,7 @@ export class Car {
   }
 
   update(dt: number) {
-    if (this.path.length > 0) {
+    if (this.path.length > 0 && !this.hold) {
       const pos = this.group.position
       const target = this.path[0]
       const d = new THREE.Vector3().subVectors(target, pos)
@@ -414,7 +418,7 @@ export class Tanker {
   }
 }
 
-const WAIT_SPOTS = [new THREE.Vector3(3.6, -6.5, 0), new THREE.Vector3(3.6, -9.5, 0)]
+const WAIT_SPOTS = [new THREE.Vector3(3.4, -4.6, 0), new THREE.Vector3(3.4, -7.4, 0)]
 const PARK_LANE_Y = 4.8
 
 export interface CarManagerOpts {
@@ -437,6 +441,7 @@ export class CarManager {
   private pumpOcc: (Car | null)[] = [null, null, null, null]
   private evOcc: (Car | null)[] = [null, null, null, null]
   private parkOcc: (Car | null)[] = []
+  private waitOcc: (Car | null)[] = [null, null]
 
   constructor(private scene: THREE.Scene, private lib: ModelLib | null,
               private opts: CarManagerOpts) {}
@@ -446,13 +451,35 @@ export class CarManager {
     this.nearTimer -= dt
     this.farTimer -= dt
     const transitCount = this.cars.filter(c => c.phase === 'transit').length
+    // spawn noktası doluysa bekle (üst üste doğmasınlar)
+    const spawnClear = (lane: 'near' | 'far') => !this.cars.some(c =>
+      c.phase === 'transit' && c.lane === lane && Math.abs(c.group.position.y) > 35)
     if (this.nearTimer <= 0 && transitCount < 18) {
-      this.spawnTransit('near')
-      this.nearTimer = 1.5 + Math.random() * 1.8
+      if (spawnClear('near')) {
+        this.spawnTransit('near')
+        this.nearTimer = 1.5 + Math.random() * 1.8
+      } else this.nearTimer = 0.5
     }
     if (this.farTimer <= 0 && transitCount < 18) {
-      this.spawnTransit('far')
-      this.farTimer = 2.0 + Math.random() * 2.4
+      if (spawnClear('far')) {
+        this.spawnTransit('far')
+        this.farTimer = 2.0 + Math.random() * 2.4
+      } else this.farTimer = 0.5
+    }
+
+    // şeritte takip mesafesi: öndeki yakınsa dur, içinden geçme
+    for (const c of this.cars) c.hold = false
+    for (const lane of ['near', 'far'] as const) {
+      const dirUp = lane === 'near'
+      const group = this.cars.filter(c => c.phase === 'transit' && c.lane === lane)
+      for (const c of group) {
+        const y = c.group.position.y
+        for (const o of group) {
+          if (o === c) continue
+          const gap = dirUp ? o.group.position.y - y : y - o.group.position.y
+          if (gap > 0 && gap < 3.1) { c.hold = true; break }
+        }
+      }
     }
 
     // giriş kararı
@@ -467,7 +494,8 @@ export class CarManager {
     // bekleyen yakıt müşterilerini boş (ve sağlam) pompaya yolla
     for (let i = 0; i < this.opts.pumpCount(); i++) {
       if (this.pumpOcc[i] || this.opts.isPumpBroken(i)) continue
-      const waiting = this.cars.find(c => c.phase === 'waiting' && c.slotIndex === -1 && c.patience > 0)
+      const waiting = this.cars.find(c => c.waitIndex >= 0 && c.slotIndex === -1 && c.patience > 0
+        && (c.phase === 'waiting' || c.phase === 'driving'))
       if (waiting) this.sendToSlot(waiting, i)
     }
 
@@ -548,14 +576,17 @@ export class CarManager {
       car.showBars()
       return
     }
-    const waitingCount = this.cars.filter(c => c.phase === 'waiting' && c.slotIndex === -1).length
-    if (waitingCount < WAIT_SPOTS.length) {
-      const spot = WAIT_SPOTS[waitingCount]
+    // boş bekleme noktası REZERVE edilir; hiç yer yoksa araç girmez, yoluna gider
+    let wi = -1
+    for (let i = 0; i < WAIT_SPOTS.length; i++) if (!this.waitOcc[i]) { wi = i; break }
+    if (wi >= 0) {
+      this.waitOcc[wi] = car
+      car.waitIndex = wi
       car.phase = 'driving'
       car.setPath([
         new THREE.Vector3(LANE_NEAR, APRON_IN_Y - 3.5, 0),
         new THREE.Vector3(4.2, APRON_IN_Y, 0),
-        spot,
+        WAIT_SPOTS[wi],
       ], () => {
         car.phase = 'waiting'
       })
@@ -572,6 +603,10 @@ export class CarManager {
   }
 
   private sendToSlot(car: Car, slot: number) {
+    if (car.waitIndex >= 0) {
+      this.waitOcc[car.waitIndex] = null
+      car.waitIndex = -1
+    }
     this.pumpOcc[slot] = car
     car.slotIndex = slot
     car.phase = 'driving'
@@ -617,6 +652,10 @@ export class CarManager {
   }
 
   releaseCar(car: Car) {
+    if (car.waitIndex >= 0) {
+      this.waitOcc[car.waitIndex] = null
+      car.waitIndex = -1
+    }
     const fromPark = car.phase === 'parked' || car.phase === 'toPark'
     if (car.slotIndex >= 0) {
       if (fromPark) this.parkOcc[car.slotIndex] = null

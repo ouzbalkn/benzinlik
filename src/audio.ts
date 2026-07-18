@@ -124,42 +124,40 @@ class AudioMan {
 
   private startMusic() {
     if (!this.ctx || this.musicTimer !== null) return
-    const stepDur = 60 / 120 / 2 // 8'lik nota
-    // akor kökleri (bas): C2 G2 A2 F2 — her akor 1 ölçü (8 adım)
-    const ROOTS = [65.4, 98.0, 110.0, 87.3]
+    const stepDur = 60 / 100 / 2 // 100 BPM, 8'lik grid — sakin ama yürüyen
+    const ROOTS = [130.8, 98.0, 110.0, 87.3] // C3 G2 A2 F2
     const st = (root: number, semi: number) => root * Math.pow(2, semi / 12)
-    // zıplayan bas kalıbı (yarım oktav oyunları) + neşeli melodi motifi (akora göre yarıton ofsetleri)
-    const BASS_PAT = [0, 12, 7, 12, 0, 12, 7, 10]
-    const LEAD_PATS = [
-      [24, 28, 31, 36, 31, 28, 24, 28],
-      [24, 31, 28, 24, 36, 31, 28, 26],
-    ]
+    const PENTA = [0, 3, 5, 7, 10, 12]
     this.nextTime = this.ctx.currentTime + 0.1
     this.nextStep = 0
     const tick = () => {
       if (!this.ctx || !this.musicGain) return
-      while (this.nextTime < this.ctx.currentTime + 0.35) {
+      while (this.nextTime < this.ctx.currentTime + 0.4) {
         const step = this.nextStep % 8
         const bar = Math.floor(this.nextStep / 8)
         const root = ROOTS[bar % 4]
         const when = this.nextTime - this.ctx.currentTime
-        // bas: her 8'likte kısa tok vuruş
-        this.tone(st(root, BASS_PAT[step]), 0.16, 'triangle', 0.075, when, this.musicGain!)
-        // hi-hat: off-beat tıkırtısı
-        if (step % 2 === 1) this.hat(this.nextTime, 0.018)
-        // melodi: her ölçüde motif, 2 ölçüde bir varyasyon; 4. barda nefes
-        if (bar % 4 !== 3 || step < 4) {
-          const pat = LEAD_PATS[bar % 2]
-          if (step % 2 === 0 || (bar + step) % 3 === 0) {
-            this.tone(st(root, pat[step]), 0.22, 'square', 0.028, when, this.musicGain!)
-          }
+        // yumuşak sine bas: sadece 1. ve 5. vuruş, hafif oktav
+        if (step === 0) this.tone(root / 2, 0.6, 'sine', 0.06, when, this.musicGain)
+        if (step === 4) this.tone(root, 0.45, 'sine', 0.045, when, this.musicGain)
+        // sıcak akor dokunuşu: off-beat'te çok kısık üçlü
+        if (step === 2 || step === 6) {
+          this.tone(st(root, 4) * 2, 0.5, 'triangle', 0.016, when, this.musicGain)
+          this.tone(st(root, 7) * 2, 0.5, 'triangle', 0.014, when, this.musicGain)
         }
+        // seyrek pentatonik melodi: sadece çift barlarda, yumuşak sine
+        if (bar % 2 === 0 && (step === 1 || step === 5 || (step === 7 && bar % 4 === 0))) {
+          const n = PENTA[(bar * 3 + step * 5) % PENTA.length]
+          this.tone(st(root, 12 + n) * 2, 0.55, 'sine', 0.026, when, this.musicGain)
+        }
+        // çok kısık hi-hat: yalnızca 3. ve 7. adım
+        if (step === 3 || step === 7) this.hat(this.nextTime, 0.008)
         this.nextTime += stepDur
         this.nextStep++
       }
     }
     tick()
-    this.musicTimer = window.setInterval(tick, 120)
+    this.musicTimer = window.setInterval(tick, 150)
   }
 
   toggleMusic(): boolean {
