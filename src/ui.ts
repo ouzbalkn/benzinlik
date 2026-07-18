@@ -88,6 +88,12 @@ export class UI {
   onPriceChange: (f: FuelType | 'elec', delta: number) => void = () => {}
   private lastHudKey = ''
   private setText(e: HTMLElement, v: string) { if (e.textContent !== v) e.textContent = v }
+  private setHtml(e: HTMLElement, v: string) {
+    if ((e as HTMLElement & { __h?: string }).__h !== v) {
+      (e as HTMLElement & { __h?: string }).__h = v
+      e.innerHTML = v
+    }
+  }
   private setDisp(e: HTMLElement, v: string) { if (e.style.display !== v) e.style.display = v }
   onLogin: (email: string, pass: string) => void = () => {}
   onRegister: (email: string, pass: string) => void = () => {}
@@ -311,8 +317,8 @@ export class UI {
     if (car.kind === 'ev') {
       this.fuelCtl.style.display = 'none'
       this.evCtl.style.display = 'block'
-      this.demand.innerHTML = `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
-        `<span class="fpill" style="background:#1fa8bc">ELEKTRİK</span><span class="damt">${car.demandKwh} kWh</span>`
+      this.setHtml(this.demand, `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
+        `<span class="fpill" style="background:#1fa8bc">ELEKTRİK</span><span class="damt">${car.demandKwh} kWh</span>`)
       const have = this.batteryKwh()
       this.chargeBtn.disabled = car.charging
       this.setText(this.chargeBtn, car.charging
@@ -329,9 +335,9 @@ export class UI {
     this.fuelCtl.style.display = 'block'
     this.evCtl.style.display = 'none'
     const fc = car.demandType === 'benzin' ? '#27a05a' : car.demandType === 'dizel' ? '#e8862e' : '#2f6fed'
-    this.demand.innerHTML = `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
+    this.setHtml(this.demand, `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
       `<span class="fpill" style="background:${fc}">${FUEL_LABEL[car.demandType]}</span>` +
-      `<span class="damt">${car.wantsFull ? 'FULLE' : `₺${car.demandAmount}`}</span>`
+      `<span class="damt">${car.wantsFull ? 'FULLE' : `₺${car.demandAmount}`}</span>`)
     this.nozBenzin.classList.toggle('sel', car.nozzle === 'benzin')
     this.nozDizel.classList.toggle('sel', car.nozzle === 'dizel')
     this.nozLpg.classList.toggle('sel', car.nozzle === 'lpg')
@@ -344,9 +350,9 @@ export class UI {
     this.startBtn.disabled = !car.nozzle || !(amt > 0) || car.filling || car.filled > 0 || car.wantsFull
     el<HTMLButtonElement>('fullbtn').disabled = !car.nozzle || car.filling || car.filled > 0
     if (!car.filling && car.filled === 0)
-      this.progress.textContent = car.wantsFull
+      this.setText(this.progress, car.wantsFull
         ? 'Müşteri FULLE istiyor — tabancayı seç, FULLE bas'
-        : 'Tabanca seç; tutar gir ya da FULLE'
+        : 'Tabanca seç; tutar gir ya da FULLE')
   }
 
   // ---- bina bilgi kartı ----
@@ -462,6 +468,7 @@ export class UI {
     this.setText(this.day, `${state.day}`)
     this.setText(this.rep, state.reputation.toFixed(1))
     this.setText(el<HTMLSpanElement>('quest'), state.dailyDone ? 'TAMAM' : `${state.dailyServed}/15`)
+    if (this.activeCar) this.refreshPanel()
     const ts = this.tankerStatus()
     const tpanel = el<HTMLDivElement>('tankerpanel')
     this.setDisp(tpanel, ts.length ? 'flex' : 'none')
