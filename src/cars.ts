@@ -341,6 +341,7 @@ export class Tanker {
   group: THREE.Group
   private path: THREE.Vector3[] = []
   private stayTimer = 0
+  private blockedTime = 0
   private leaving = false
   done = false
   unloading = false
@@ -404,8 +405,13 @@ export class Tanker {
         }
       } else {
         d.normalize()
-        // trafik nezaketi: önünde araç varsa tanker bekler
-        if (isBlocked?.(pos, d)) return delivered
+        // trafik nezaketi: önünde araç varsa tanker bekler (7 sn'den fazla sıkışırsa zorlar)
+        if (this.blockedTime < 7 && isBlocked?.(pos, d)) {
+          this.blockedTime += dt
+          return delivered
+        }
+        if (this.blockedTime >= 7) this.blockedTime = Math.max(0, this.blockedTime - dt * 3)
+        else this.blockedTime = 0
         pos.addScaledVector(d, step)
         this.group.rotation.z = Math.atan2(d.y, d.x)
       }
@@ -495,7 +501,7 @@ export class CarManager {
         const rel = new THREE.Vector3().subVectors(o.group.position, c.group.position)
         rel.z = 0
         const forward = rel.dot(dir)
-        if (forward < 0.4 || forward > 2.8) continue
+        if (forward < 0.4 || forward > 3.6) continue
         const lateral = rel.addScaledVector(dir, -forward).length()
         if (lateral < 1.25) { c.hold = true; blockers.set(c, o); break }
       }
@@ -504,7 +510,7 @@ export class CarManager {
           const rel = new THREE.Vector3().subVectors(ob, c.group.position)
           rel.z = 0
           const forward = rel.dot(dir)
-          if (forward < 0.2 || forward > 3.2) continue
+          if (forward < 0.2 || forward > 3.8) continue
           if (rel.addScaledVector(dir, -forward).length() < 1.5) { c.hold = true; break }
         }
       }
@@ -520,9 +526,9 @@ export class CarManager {
         if (o === c || o.lane === 'far') return false
         const oy = o.group.position.y
         // arkadan yaklaşan akan trafik
-        if (o.phase === 'transit' && oy > p.y - 10.5 && oy < p.y + 1.5) return true
+        if (o.phase === 'transit' && oy > p.y - 12 && oy < p.y + 1.5) return true
         // az önce şeride çıkmış öndeki araç yeterince uzaklaşmadıysa bekle
-        if (o.phase === 'leaving' && o.group.position.x > 5.2 && oy > p.y - 1 && oy < p.y + 4.5) return true
+        if (o.phase === 'leaving' && o.group.position.x > 5.2 && oy > p.y - 1 && oy < p.y + 6) return true
         return false
       })
       if (laneBusy) c.hold = true

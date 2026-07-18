@@ -1116,6 +1116,17 @@ applyStationName(
 )
 ui.onRename = name => applyStationName(name)
 
+// tek seferlik hediye: patrona 3 tanker (kayıt yarışına takılmasın diye kodda)
+if (!isFullMode && auth.currentEmail() === 'oguz@benerits.com' && !localStorage.getItem('benzinlik-gift-1')) {
+  localStorage.setItem('benzinlik-gift-1', '1')
+  state.orders.benzin = { pending: true, eta: 8, arrived: false }
+  state.orders.dizel = { pending: true, eta: 16, arrived: false }
+  state.orders.lpg = { pending: true, eta: 24, arrived: false }
+  ui.toast('Hediye: 3 tanker yola çıktı — benzin, dizel ve LPG geliyor!', 'good', true)
+  audio.achieve()
+  persist()
+}
+
 // kâr marjı ayarı (ofis kartından): alış sabit, satışı oyuncu belirler
 function syncSignPrices() {
   world.setPrices(state.prices.benzin, state.prices.dizel, state.prices.lpg)
