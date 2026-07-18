@@ -332,15 +332,14 @@ function finishSale(car: Car) {
     const penalty = Math.round(spill * SPILL_PENALTY_PER_L)
     state.money -= penalty
     score -= 0.8
-    ui.toast(`💦 Fazla bastın, ${spill.toFixed(1)}L taştı! -${penalty} ₺`, 'bad')
+    ui.toast(`Taşan yakıt cezası: -₺${penalty}`, 'bad')
   } else if (car.filledValue >= car.demandAmount - 10) {
     const tip = Math.round(revenue0 * 0.1)
     revenue += tip
     score += 0.8
-    ui.toast(`👌 Tam isabet! +${tip} ₺ bahşiş`, 'good')
+    ui.toast(`Bahşiş: +₺${tip}`, 'good')
   } else {
-    score -= 0.6
-    ui.toast(`🤏 Eksik doldurdun (₺${revenue0.toFixed(0)} ödendi)`, '')
+    score -= 0.6 // eksik dolum: sessiz, sadece memnuniyet düşer
   }
 
   state.money += revenue
