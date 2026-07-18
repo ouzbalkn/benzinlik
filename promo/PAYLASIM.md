@@ -6,12 +6,13 @@ Oyun: **https://petrol.benerits.com**
 
 | Dosya | Format | Süre | Platform |
 |---|---|---|---|
-| `reklam-yatay.mp4` | 1920×1080 · 30fps | 61 sn | Twitter/X, YouTube |
-| `reklam-dikey.mp4` | 1080×1920 · 30fps | 56 sn | TikTok, Instagram Reels |
+| `reklam-yatay.mp4` | 1920×1080 · 30fps | 40 sn | Twitter/X, YouTube |
+| `reklam-dikey.mp4` | 1080×1920 · 30fps | 39 sn | TikTok, Instagram Reels |
 
 Akış: tek pompalı boş arsa → "KENDİ BENZİNLİĞİNİ KUR" → canlı dolum sayaçlarıyla satış →
 "BÜYÜ VE GELİŞ" (pompalar+tabela) → "MARKETİNİ AÇ" → "ELEKTRİĞE GEÇ" (şarj+batarya) →
-"GÜNEŞ PANELLERİNİ KUR" → "NÜKLEER ÇAĞA ADIM AT" (soğutma kulesi) → "ŞİMDİ OYNA".
+"GÜNEŞ PANELLERİNİ KUR" → "NÜKLEER ÇAĞA ADIM AT" (soğutma kulesi) → "KENDİ PETROL İSTASYONUNU İŞLET" → "ŞİMDİ OYNA".
+Her beat'te beyaz flaş geçişi, koyu kutulu okunur yazılar, 132 BPM tempolu müzik.
 Kamera yakın plandan geniş plana süzülür; kasa canlı artar. Tümü gerçek oyun motoru.
 
 ## B-roll (`klipler/`, 25fps, sessiz)

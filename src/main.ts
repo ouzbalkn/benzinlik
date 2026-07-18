@@ -2045,17 +2045,35 @@ frame()
 // 🎬 REKLAM MODU (?promo=1): oyun kendi reklamını oynar — tek pompadan nükleer çağa.
 if (isPromoMode) {
   state.money = 9000
+  const fastAd = new URLSearchParams(location.search).has('fast')
+  const T = fastAd ? 0.62 : 1
   const cap = document.createElement('div')
   cap.id = 'promocap'
   cap.style.cssText =
-    'position:fixed;left:50%;transform:translateX(-50%);bottom:11%;z-index:60;width:94vw;' +
+    'position:fixed;left:50%;transform:translateX(-50%);bottom:10%;z-index:60;max-width:94vw;' +
     "font-family:'Baloo 2',sans-serif;font-weight:800;color:#fff;text-align:center;" +
-    'text-shadow:0 3px 0 rgba(28,37,48,.95),0 10px 28px rgba(0,0,0,.55);' +
-    'font-size:min(7.2vw,86px);line-height:1.1;opacity:0;transition:opacity .5s;pointer-events:none'
+    'background:rgba(28,37,48,.9);padding:16px 30px;border-radius:22px;' +
+    'border-bottom:5px solid #d64545;box-shadow:0 12px 34px rgba(0,0,0,.45);' +
+    'font-size:min(6.6vw,80px);line-height:1.12;opacity:0;transition:opacity .4s;pointer-events:none'
+  cap.style.transition = 'opacity .4s, transform .4s cubic-bezier(.34,1.56,.64,1)'
+  cap.style.transform = 'translateX(-50%) scale(.9)'
   document.body.appendChild(cap)
+  // geçiş flaşı: her beat'te yumuşak beyaz parlama
+  const flash = document.createElement('div')
+  flash.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0;z-index:55;' +
+    'pointer-events:none;transition:opacity .12s'
+  document.body.appendChild(flash)
   const say = (t: string) => {
+    flash.style.opacity = '0.75'
+    setTimeout(() => { flash.style.transition = 'opacity .55s'; flash.style.opacity = '0' }, 130)
+    setTimeout(() => { flash.style.transition = 'opacity .12s' }, 750)
     cap.style.opacity = '0'
-    setTimeout(() => { cap.innerHTML = t; cap.style.opacity = '1' }, 480)
+    cap.style.transform = 'translateX(-50%) scale(.9)'
+    setTimeout(() => {
+      cap.innerHTML = t
+      cap.style.opacity = '1'
+      cap.style.transform = 'translateX(-50%) scale(1)'
+    }, 430)
   }
   const buy = (id: string) => {
     if (!buyItem(state, id)) { state.money += 500_000; buyItem(state, id) }
@@ -2078,18 +2096,18 @@ if (isPromoMode) {
     [37, () => { say('GÜNEŞ PANELLERİNİ KUR'); buy('solar') }],
     [40, () => { buy('airwater'); buy('selfwash') }],
     [43, () => { say('NÜKLEER ÇAĞA ADIM AT'); buy('smr') }],
-    [49, () => say('BENZİNLİK İMPARATORLUĞUNU KUR')],
-    [55, () => say('ŞİMDİ OYNA<br><span style="color:#ffd24d">petrol.benerits.com</span>')],
+    [49, () => say('KENDİ PETROL İSTASYONUNU İŞLET')],
+    [55, () => say('<span style="color:#ffd24d">ŞİMDİ OYNA</span>')],
   ]
   let bi = 0
   let pt = 0
   promoTick = dt => {
     pt += dt
-    while (bi < beats.length && pt >= beats[bi][0]) { beats[bi][1](); bi++ }
+    while (bi < beats.length && pt >= beats[bi][0] * T) { beats[bi][1](); bi++ }
     // kasa reklam boyunca dolar — büyüme hissi
     state.money += dt * (1800 + pt * 160)
     // kamera: yakın plandan geniş plana süzülür
-    camera.zoom = 1.85 - Math.min(1, pt / 46) * 1.02
+    camera.zoom = 1.85 - Math.min(1, pt / (46 * T)) * 1.02
     camera.updateProjectionMatrix()
     // müşteriler reklamda kendiliğinden karşılanır
     for (const c of cars.cars) {
