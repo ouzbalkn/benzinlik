@@ -391,7 +391,7 @@ export class Tanker {
     ]
   }
 
-  update(dt: number): boolean {
+  update(dt: number, isBlocked?: (pos: THREE.Vector3, dir: THREE.Vector3) => boolean): boolean {
     let delivered = false
     if (this.path.length > 0) {
       const pos = this.group.position
@@ -408,6 +408,8 @@ export class Tanker {
         }
       } else {
         d.normalize()
+        // trafik nezaketi: önünde araç varsa tanker bekler
+        if (isBlocked?.(pos, d)) return delivered
         pos.addScaledVector(d, step)
         this.group.rotation.z = Math.atan2(d.y, d.x)
       }
@@ -443,6 +445,8 @@ export interface CarManagerOpts {
   isChargerBroken: (i: number) => boolean
   /** yerleştirilmiş otoparkın park noktaları (yoksa boş) */
   parkSpots: () => THREE.Vector3[]
+  /** araçların kaçınacağı ek engeller (ör. tanker) */
+  extraObstacles: () => THREE.Vector3[]
   onCarReady: (car: Car) => void
   onCarLost: (car: Car) => void
 }
@@ -496,6 +500,15 @@ export class CarManager {
         if (forward < 0.4 || forward > 2.8) continue
         const lateral = rel.addScaledVector(dir, -forward).length()
         if (lateral < 1.25) { c.hold = true; blockers.set(c, o); break }
+      }
+      if (!c.hold) {
+        for (const ob of this.opts.extraObstacles()) {
+          const rel = new THREE.Vector3().subVectors(ob, c.group.position)
+          rel.z = 0
+          const forward = rel.dot(dir)
+          if (forward < 0.2 || forward > 3.2) continue
+          if (rel.addScaledVector(dir, -forward).length() < 1.5) { c.hold = true; break }
+        }
       }
     }
     // karşılıklı kilitlenme: ikisi de birbirini bekliyorsa biri yol alır

@@ -283,14 +283,14 @@ export class GameState {
     const brokenCount = this.brokenPumps.size + this.brokenChargers.size
     if (brokenCount < 2) {
       for (let i = 0; i < this.pumps; i++) {
-        if (!this.brokenPumps.has(i) && Math.random() < (dt / 2000) * stress * care) {
+        if (!this.brokenPumps.has(i) && Math.random() < (dt / 3600) * stress * care) {
           this.brokenPumps.add(i)
           this.events.push(`🔧 Pompa #${i + 1} arıza yaptı! Üstüne tıklayıp karttan tamir et.`)
           break
         }
       }
       for (let i = 0; i < this.evChargers; i++) {
-        if (!this.brokenChargers.has(i) && Math.random() < (dt / 2400) * stress * care) {
+        if (!this.brokenChargers.has(i) && Math.random() < (dt / 4200) * stress * care) {
           this.brokenChargers.add(i)
           this.events.push(`🔌 Şarj ünitesi #${i + 1} arızalandı!`)
           break

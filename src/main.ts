@@ -124,6 +124,15 @@ const world = new World(staticLib)
 const state = new GameState()
 const ui = new UI()
 ui.batteryKwh = () => state.battery
+ui.tankerStatus = () => {
+  const parts: string[] = []
+  for (const f of FUELS) {
+    const active = tankers.find(x => x.fuel === f)
+    if (active) parts.push(`${FUEL_LABEL[f]}: ${active.t.unloading ? 'boşaltıyor' : 'sahada, yanaşıyor'}`)
+    else if (state.orders[f].pending) parts.push(`${FUEL_LABEL[f]}: ${Math.ceil(state.orders[f].eta)} sn`)
+  }
+  return parts
+}
 const tankers: { t: Tanker; fuel: FuelType }[] = []
 let exploding = false
 let selectedBuilding: string | null = null
@@ -143,6 +152,7 @@ const cars = new CarManager(world.scene, modelLib, {
   isPumpBroken: i => state.brokenPumps.has(i),
   isChargerBroken: i => state.brokenChargers.has(i),
   parkSpots: () => world.getParkingSpots(),
+  extraObstacles: () => tankers.map(x => x.t.group.position),
   onCarReady: car => { if (!ui.activeCar) ui.selectCar(car) },
   onCarLost: car => {
     ui.toast('Müşteri beklemekten sıkıldı ve gitti!', 'bad', true)
@@ -1532,9 +1542,20 @@ function frame() {
       tankers.push({ t: new Tanker(world.scene, modelLib, f, tankers.length), fuel: f })
     }
   }
+  const tankerBlocked = (pos: THREE.Vector3, dir: THREE.Vector3) => {
+    for (const c of cars.cars) {
+      if (c.phase === 'gone') continue
+      const rel = new THREE.Vector3().subVectors(c.group.position, pos)
+      rel.z = 0
+      const forward = rel.dot(dir)
+      if (forward < 0.5 || forward > 3.8) continue
+      if (rel.addScaledVector(dir, -forward).length() < 1.6) return true
+    }
+    return false
+  }
   for (let i = tankers.length - 1; i >= 0; i--) {
     const { t, fuel } = tankers[i]
-    if (t.update(dt)) {
+    if (t.update(dt, tankerBlocked)) {
       state.deliverFuel(fuel)
       ui.toast(`${FUEL_LABEL[fuel]} tankı dolduruldu!`, 'good')
     }
