@@ -74,6 +74,41 @@ function readBody(req) {
   })
 }
 
+// İstemciden gelen kaydı makul sınırlara kırp — bariz hileleri SQL'e sokma.
+const clamp = (v, lo, hi, dflt = lo) => (typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt)
+function sanitizeSave(save) {
+  if (save === null) return null
+  if (typeof save !== 'object' || Array.isArray(save)) return undefined
+  const s = save.s
+  if (!s || typeof s !== 'object') return undefined
+  s.money = clamp(s.money, 0, 2_000_000, 5000)
+  s.reputation = clamp(s.reputation, 0, 5, 3)
+  s.day = clamp(s.day, 1, 100000, 1)
+  s.pumps = clamp(s.pumps, 1, 4, 1)
+  s.evChargers = clamp(s.evChargers, 0, 4, 0)
+  s.signLevel = clamp(s.signLevel, 0, 3, 0)
+  s.tankLevel = clamp(s.tankLevel, 0, 3, 0)
+  s.marketLevel = clamp(s.marketLevel, 0, 2, 0)
+  s.toiletLevel = clamp(s.toiletLevel, 0, 2, 0)
+  s.gridLevel = clamp(s.gridLevel, 0, 2, 0)
+  s.batteryLevel = clamp(s.batteryLevel, 0, 3, 0)
+  s.battery = clamp(s.battery, 0, 600, 0)
+  s.uranium = clamp(s.uranium, 0, 100, 0)
+  s.loginStreak = clamp(s.loginStreak, 0, 3650, 0)
+  s.dailyServed = clamp(s.dailyServed, 0, 10000, 0)
+  if (s.tanks && typeof s.tanks === 'object') {
+    for (const k of ['benzin', 'dizel', 'lpg']) s.tanks[k] = clamp(s.tanks[k], 0, 5000, 0)
+  }
+  if (s.pendingCash && typeof s.pendingCash === 'object') {
+    for (const k of Object.keys(s.pendingCash)) s.pendingCash[k] = clamp(s.pendingCash[k], 0, 600, 0)
+  }
+  if (typeof s.stationName === 'string') s.stationName = s.stationName.slice(0, 14)
+  if (Array.isArray(save.placedRects) && save.placedRects.length > 64) save.placedRects = save.placedRects.slice(0, 64)
+  if (Array.isArray(s.ownedParcels) && s.ownedParcels.length > 18) s.ownedParcels = s.ownedParcels.slice(0, 18)
+  if (Array.isArray(s.achievements) && s.achievements.length > 32) s.achievements = s.achievements.slice(0, 32)
+  return save
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json',
@@ -116,7 +151,9 @@ async function handleApi(req, res, url) {
     if (url === '/api/save' && req.method === 'POST') {
       const email = auth(); if (!email) return
       const { save } = await readBody(req)
-      await pool.query('UPDATE benzinlik_player SET save=$2, updated_at=now() WHERE email=$1', [email, save])
+      const clean = sanitizeSave(save)
+      if (clean === undefined) return json(res, 400, { error: 'Geçersiz kayıt verisi.' })
+      await pool.query('UPDATE benzinlik_player SET save=$2, updated_at=now() WHERE email=$1', [email, clean])
       return json(res, 200, { ok: true })
     }
     json(res, 404, { error: 'not found' })

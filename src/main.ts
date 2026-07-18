@@ -131,7 +131,7 @@ let cardRefreshT = 0
 
 composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(world.scene, camera))
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.32, 0.45, 0.93)) // yarı çözünürlük bloom: gözle fark yok, kat kat hızlı
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.24, 0.4, 0.93)) // yarı çözünürlük bloom: gözle fark yok, kat kat hızlı
 composer.addPass(new OutputPass())
 composer.setSize(window.innerWidth, window.innerHeight)
 

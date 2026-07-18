@@ -181,7 +181,7 @@ function buildPumpMesh(nightMats: NightMat[]): THREE.Group {
   box(0.05, 0.66, 0.46, 0x1c2530, 0.3, 0, 1.12, g)
   const screen = glow(0xa8dcf0, 0.55)
   box(0.03, 0.54, 0.34, 0xa8dcf0, 0.33, 0, 1.12, g, screen)
-  nightMats.push({ mat: screen, day: 0.55, night: 1.5, owner: 'pump' })
+  nightMats.push({ mat: screen, day: 0.55, night: 0.95, owner: 'pump' })
   for (const [sy, c] of [[0.52, 0x2fa05a], [-0.52, 0xe8862e]] as const) {
     box(0.34, 0.08, 0.5, 0x2b2f33, 0, sy, 1.0, g)
     box(0.12, 0.1, 0.3, c, 0.12, sy, 1.05, g)
@@ -558,7 +558,7 @@ export class World {
       p.lookAt(new THREE.Vector3(1, 0, 0))
       p.position.set(x, y, z)
       g.add(p)
-      this.nightMats.push({ mat: m, day: 0.03, night: 1.7, owner: 'bldg' })
+      this.nightMats.push({ mat: m, day: 0.03, night: 1.05, owner: 'bldg' })
     }
   }
 
@@ -573,7 +573,7 @@ export class World {
     for (const n of this.nightMats) {
       n.mat.emissiveIntensity = n.day + (n.night - n.day) * f
     }
-    for (const l of this.nightLights) l.intensity = 30 * f
+    for (const l of this.nightLights) l.intensity = 17 * f
   }
 
   showGrid(v: boolean) {
@@ -687,8 +687,8 @@ export class World {
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), bulbMat)
     bulb.position.set(x + 0.6, y, 3.0)
     this.scene.add(bulb)
-    this.nightMats.push({ mat: bulbMat, day: 0.05, night: 2.2, owner: 'lamp' })
-    const light = new THREE.PointLight(0xffd9a0, 0, 20, 1.6)
+    this.nightMats.push({ mat: bulbMat, day: 0.05, night: 1.3, owner: 'lamp' })
+    const light = new THREE.PointLight(0xffd9a0, 0, 18, 1.7)
     light.position.set(x + 0.6, y, 3.2)
     this.scene.add(light)
     this.nightLights.push(light)
@@ -878,7 +878,7 @@ export class World {
     box(0.35, 0.55, 1.5, 0xf0f0ec, 0, 0, 0.85, g)
     const stripe = glow(0x35c7d6, 0.8)
     box(0.37, 0.57, 0.22, 0x35c7d6, 0, 0, 1.35, g, stripe)
-    this.nightMats.push({ mat: stripe, day: 0.8, night: 1.8, owner: 'charger' })
+    this.nightMats.push({ mat: stripe, day: 0.8, night: 1.15, owner: 'charger' })
     box(0.04, 0.34, 0.3, 0x1c2530, 0.19, 0, 1.0, g)
     cyl(0.03, 0.5, 0x23272b, 0.15, 0.3, 0.6, 'z', g)
     box(0.1, 0.08, 0.2, 0x35c7d6, 0.15, 0.3, 0.35, g)
@@ -904,7 +904,7 @@ export class World {
     let backMat: THREE.Material
     if (level >= 1) {
       const gm = glow(level >= 3 ? 0xd64545 : 0xf0f0ec, level >= 2 ? 0.35 : 0.05)
-      this.nightMats.push({ mat: gm, day: level >= 2 ? 0.35 : 0.05, night: 1.4, owner: 'sign' })
+      this.nightMats.push({ mat: gm, day: level >= 2 ? 0.35 : 0.05, night: 0.9, owner: 'sign' })
       backMat = gm
     } else {
       backMat = lam(0xf0f0ec)
