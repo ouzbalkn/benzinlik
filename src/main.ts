@@ -1652,9 +1652,19 @@ window.addEventListener('pointerup', e => {
   if (zoneMode) {
     if (e.button === 0) {
       if (zoneMode.valid) confirmZone()
-      else ui.toast(zoneMode.kind === 'land'
-        ? '🚫 Bu arsa alınamaz (bitişik değil, zaten senin ya da para yetmiyor).'
-        : '🚫 Bu arsa betonlanamaz (senin değil, zaten betonlu ya da para yetmiyor).', 'bad')
+      else if (zoneMode.kind === 'land') {
+        const { c, r } = zoneMode
+        const cost = parcelCost(c, r, state)
+        ui.toast(c < 0 ? 'Bir parsele tıkla.'
+          : state.owns(c, r) ? 'Bu arsa zaten senin.'
+          : !state.parcelAdjacentToOwned(c, r) ? 'Bitişik değil — önce aradaki arsayı almalısın.'
+          : `Para yetmiyor: bu arsa ₺${cost.toLocaleString('tr-TR')}, kasada ₺${Math.floor(state.money).toLocaleString('tr-TR')} var.`, 'bad')
+      } else {
+        const { c, r } = zoneMode
+        ui.toast(c < 0 ? 'Bir parsele tıkla.'
+          : !state.owns(c, r) ? 'Bu arsa senin değil — önce satın al.'
+          : state.isPaved(c, r) ? 'Bu arsa zaten betonlu.'
+          : `Para yetmiyor: beton ₺${PAVE_COST.toLocaleString('tr-TR')}.`, 'bad')
     }
     return
   }

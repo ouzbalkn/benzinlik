@@ -51,7 +51,7 @@ export function parcelKey(c: number, r: number) { return `${c},${r}` }
 export function parcelCost(c: number, _r: number, s?: GameState) {
   const base = c === 0 ? 6000 : (c === 1 || c === 3) ? 9000 : 14000
   if (!s) return base
-  const mult = 1 + 0.12 * s.developmentScore()
+  const mult = Math.min(1 + 0.12 * s.developmentScore(), 2) // gelişmişlik zammı en fazla 2 katına çıkarır
   return Math.round(base * mult / 100) * 100
 }
 /** komşuluk: aynı blokta yan yana/alt alta; 0↔3 yol karşısı sayılır */
