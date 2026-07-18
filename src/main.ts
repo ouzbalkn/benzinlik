@@ -979,6 +979,8 @@ const pointer = new THREE.Vector2()
 let downX = 0, downY = 0, lastX = 0, lastY = 0, isDown = false, isDrag = false
 
 renderer.domElement.addEventListener('pointerdown', e => {
+  // kamera kaydırma yalnızca sol tuşla; sağ tık sadece iptal işidir
+  if (e.button !== 0) { isDown = false; return }
   isDown = true; isDrag = false
   downX = lastX = e.clientX
   downY = lastY = e.clientY
@@ -1016,6 +1018,8 @@ window.addEventListener('pointermove', e => {
     }
   }
   if (!isDown) return
+  // sol tuş bırakılmış ama pointerup kaçmışsa (ör. sağ tık menüsü araya girdi) sürüklemeyi kes
+  if ((e.buttons & 1) === 0) { isDown = false; isDrag = false; return }
   const dx = e.clientX - lastX
   const dy = e.clientY - lastY
   lastX = e.clientX; lastY = e.clientY
