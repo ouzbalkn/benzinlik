@@ -209,6 +209,7 @@ export class Car {
   stayT = 0
   /** geri geri park manevrası sürüyor */
   reversing = false
+  private solidStuckT = 0
   truckStagePos: THREE.Vector3 | null = null
   /** aracın gizli yakıt ihtiyacı (litre) — tipine göre: binek/SUV/kamyon */
   hiddenNeedL = 30
@@ -399,8 +400,28 @@ export class Car {
         else if (Math.abs(d.x) > 0.01 && !Car.insideSolid(nx, pos.y)) { mx = nx } // duvar boyunca x'te kay
         else if (Math.abs(d.y) > 0.01 && !Car.insideSolid(pos.x, ny)) { my = ny } // duvar boyunca y'de kay
         // ikisi de tıkalıysa bu kare bekle (asla içinden geçme)
-        const moved = mx !== pos.x || my !== pos.y
+        const movedDist = Math.hypot(mx - pos.x, my - pos.y)
+        const moved = movedDist > 1e-9
         pos.set(mx, my, pos.z)
+        // engele takıldıysa say; 1.6 sn ilerleyemezse başka yönden dolaş
+        if (movedDist < step * 0.25) this.solidStuckT += dt
+        else this.solidStuckT = 0
+        if (this.solidStuckT > 1.6 && this.path.length < 12) {
+          this.solidStuckT = 0
+          const base = Math.atan2(target.y - pos.y, target.x - pos.x)
+          let best: THREE.Vector3 | null = null
+          let bestScore = Infinity
+          for (const a of [50, -50, 90, -90, 130, -130, 180]) {
+            const ang = base + a * Math.PI / 180
+            const cx2 = pos.x + Math.cos(ang) * 2.2
+            const cy2 = pos.y + Math.sin(ang) * 2.2
+            if (Car.insideSolid(cx2, cy2)) continue
+            if (Car.insideSolid(pos.x + Math.cos(ang) * 1.1, pos.y + Math.sin(ang) * 1.1)) continue
+            const score = Math.hypot(target.x - cx2, target.y - cy2) + Math.abs(a) * 0.015
+            if (score < bestScore) { bestScore = score; best = new THREE.Vector3(cx2, cy2, 0) }
+          }
+          if (best) this.path.unshift(best) // ara nokta: engelin öbür yanından dolan
+        }
         if (moved) {
           const yaw = Math.atan2(d.y, d.x) + (this.reversing ? Math.PI : 0)
           let diff = yaw - this.group.rotation.z
