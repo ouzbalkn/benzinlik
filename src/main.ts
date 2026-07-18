@@ -1665,6 +1665,7 @@ window.addEventListener('pointerup', e => {
           : !state.owns(c, r) ? 'Bu arsa senin değil — önce satın al.'
           : state.isPaved(c, r) ? 'Bu arsa zaten betonlu.'
           : `Para yetmiyor: beton ₺${PAVE_COST.toLocaleString('tr-TR')}.`, 'bad')
+      }
     }
     return
   }

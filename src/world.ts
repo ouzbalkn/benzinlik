@@ -621,20 +621,26 @@ export class World {
   private buildRoadEdge() {
     for (const o of this.roadEdgeMeshes) this.scene.remove(o)
     this.roadEdgeMeshes = []
+    // bordür kaplanan cepheler: istasyon şeridi + betonlanmış kuzey/güney parseller
+    const ranges: [number, number][] = [[-10, 10]]
+    if (this.isPavedFn(0, 0)) ranges.push([-24, -10])
+    if (this.isPavedFn(0, 2)) ranges.push([10, 24])
     const gaps = [this.gateIn.y, this.gateOut.y]
       .map(y => [y - 1.75, y + 1.75] as [number, number])
       .sort((a, b) => a[0] - b[0])
-    const segs: [number, number][] = []
-    let cursor = -10
-    for (const [g0, g1] of gaps) {
-      if (g1 < -10 || g0 > 10) continue
-      if (g0 > cursor) segs.push([cursor, Math.min(g0, 10)])
-      cursor = Math.max(cursor, g1)
-    }
-    if (cursor < 10) segs.push([cursor, 10])
-    for (const [a, b] of segs) {
-      if (b - a < 0.3) continue
-      this.roadEdgeMeshes.push(box(0.18, b - a, 0.14, 0xd8dbde, 5.02, (a + b) / 2, 0.07, this.scene))
+    for (const [ra, rb] of ranges) {
+      const segs: [number, number][] = []
+      let cursor = ra
+      for (const [g0, g1] of gaps) {
+        if (g1 < ra || g0 > rb) continue
+        if (g0 > cursor) segs.push([cursor, Math.min(g0, rb)])
+        cursor = Math.max(cursor, g1)
+      }
+      if (cursor < rb) segs.push([cursor, rb])
+      for (const [a, b] of segs) {
+        if (b - a < 0.3) continue
+        this.roadEdgeMeshes.push(box(0.18, b - a, 0.14, 0xd8dbde, 5.02, (a + b) / 2, 0.07, this.scene))
+      }
     }
     this.roadEdgeMeshes.push(this.makeApron(this.gateIn.y))
     this.roadEdgeMeshes.push(this.makeApron(this.gateOut.y))
@@ -849,15 +855,13 @@ export class World {
     tryEdge('E', ec !== null ? [ec, r] : null, 'W', c === 0)
     tryEdge('N', r < 2 ? [c, r + 1] : null, 'S', false)
     tryEdge('S', r > 0 ? [c, r - 1] : null, 'N', false)
-    // istasyon kolonunun yol tarafı özel: rampa + bordür + lamba
+    // istasyon kolonunun yol tarafı: dinamik bordür kapı boşluklarını kendisi açar
     if (c === 0 && r === 0) {
-      this.makeApron(APRON_SOUTH_Y)
-      box(0.18, 5.6, 0.14, 0xd8dbde, 5.02, -21, 0.07, this.scene)
-      box(0.18, 3.6, 0.14, 0xd8dbde, 5.02, -12, 0.07, this.scene)
       this.placeLamp(5.45, -20)
+      this.buildRoadEdge()
     } else if (c === 0 && r === 2) {
-      box(0.18, 14, 0.14, 0xd8dbde, 5.02, 17, 0.07, this.scene)
       this.placeLamp(5.45, 19)
+      this.buildRoadEdge()
     }
   }
 
