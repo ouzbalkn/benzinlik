@@ -30,6 +30,12 @@ const DIESELGEN_COST = 4000
 const SMR_COST = 40000
 const WASH_COST = 8000
 const OIL_COST = 12000
+const LAND_WEST_COST = 9000
+const COFFEE_COST = 7000
+const RESTAURANT_COST = 15000
+const TRUCKPARK_COST = 12000
+const AIRWATER_COST = 1500
+const SELFWASH_COST = 6000
 export const URANIUM_COST = 2500
 export const URANIUM_ETA = 20 // saniye
 const URANIUM_DRAIN_PER_S = 100 / 300 // tam yük ~5 dakika sürer
@@ -57,6 +63,14 @@ export class GameState {
   hasSMR = false
   hasWash = false
   hasOil = false
+  landWest = false
+  hasCoffee = false
+  hasRestaurant = false
+  hasTruckPark = false
+  hasAirWater = false
+  hasSelfWash = false
+  private truckTimer = 45
+  private selfWashTimer = 30
 
   // bakım / arıza
   solarDirt = 0 // 0..1
@@ -139,6 +153,26 @@ export class GameState {
         this.exploded = true
       }
     }
+    // pasif gelirler
+    if (this.hasTruckPark) {
+      this.truckTimer -= dt
+      if (this.truckTimer <= 0) {
+        this.truckTimer = 35 + Math.random() * 20
+        const m = 90 + Math.floor(Math.random() * 70)
+        this.money += m
+        this.events.push(`🚛 Tır parkı geliri: +₺${m}`)
+      }
+    }
+    if (this.hasSelfWash) {
+      this.selfWashTimer -= dt
+      if (this.selfWashTimer <= 0) {
+        this.selfWashTimer = 25 + Math.random() * 20
+        const m = 30 + Math.floor(Math.random() * 30)
+        this.money += m
+        this.events.push(`🧽 Self yıkama: köpük/su satışı +₺${m}`)
+      }
+    }
+
     // rastgele arızalar — Murphy kanunu: para azken arıza olasılığı katlanır
     const stress = this.money < 1000 ? 4 : this.money < 3000 ? 2.5 : this.money < 6000 ? 1.5 : 1
     const brokenCount = this.brokenPumps.size + this.brokenChargers.size
@@ -165,6 +199,9 @@ export class GameState {
     const c = 0.32 + 0.1 * this.signLevel + 0.05 * (this.reputation - 3)
       + 0.04 * this.marketLevel + 0.02 * this.toiletLevel + 0.02 * this.evChargers
       + (this.hasWash ? 0.03 : 0) + (this.hasOil ? 0.03 : 0)
+      + (this.hasCoffee ? 0.02 : 0) + (this.hasRestaurant ? 0.03 : 0)
+      + (this.hasTruckPark ? 0.02 : 0) + (this.hasAirWater ? 0.02 : 0)
+      + (this.hasSelfWash ? 0.02 : 0)
     return Math.min(0.95, Math.max(0.08, c))
   }
 
@@ -222,6 +259,8 @@ export function getShopItems(s: GameState): ShopRow[] {
     s.landSouth ? null : LAND_COST, null)
   row('land-north', '🏞️', 'Kuzey Arsa', '+1 arsa', 'Kuzeye doğru yeni tesis alanı açar',
     s.landNorth ? null : LAND_COST, null)
+  row('land-west', '🏞️', 'Batı Arsa', 'geniş alan', 'Arka tarafta restoran, kahveci ve tır parkı için büyük alan',
+    s.landWest ? null : LAND_WEST_COST, null)
   row('pump', '⛽', `Pompa #${Math.min(s.pumps + 1, MAX_PUMPS)}`, '+1 pompa', 'Aynı anda bir müşteri daha alırsın',
     s.pumps >= MAX_PUMPS ? null : PUMP_COSTS[s.pumps],
     s.pumps >= 2 && !s.landSouth ? 'Güney arsa gerekli' : null)
@@ -245,6 +284,20 @@ export function getShopItems(s: GameState): ShopRow[] {
   row('oil', '🛢️', 'Yağ Değişimi', '+₺150-250', 'Müşterilerin ~%12\'si yağ değiştirtir, güçlü ek gelir',
     s.hasOil ? null : OIL_COST,
     !anyLand ? 'Yan arsa gerekli' : null)
+  row('airwater', '💨', 'Hava-Su Ünitesi', '+₺10-20', 'Lastik havası ve su — ucuz ama müşteri çeker',
+    s.hasAirWater ? null : AIRWATER_COST, null)
+  row('selfwash', '🧽', 'Self Yıkama', '+₺30-60/dk', 'Araçlar kendisi yıkar; köpük ve su otomatik satılır',
+    s.hasSelfWash ? null : SELFWASH_COST,
+    !anyLand ? 'Yan arsa gerekli' : null)
+  row('coffee', '☕', 'Kahveci', '+₺20-45', 'Yolcular kahve molası verir',
+    s.hasCoffee ? null : COFFEE_COST,
+    !anyLand ? 'Yan arsa gerekli' : null)
+  row('restaurant', '🍽️', 'Restoran', '+₺80-160', 'Uzun yol müşterisi yemek molası verir',
+    s.hasRestaurant ? null : RESTAURANT_COST,
+    !anyLand ? 'Yan arsa gerekli' : null)
+  row('truckpark', '🚛', 'Tır Parkı', '+₺90-160/dk', 'Tırcılar konaklar — düzenli pasif gelir',
+    s.hasTruckPark ? null : TRUCKPARK_COST,
+    !s.landWest ? 'Batı arsa gerekli' : null)
 
   // elektrik zinciri
   row('grid', '⚡', `Elektrik Altyapısı Sv.${Math.min(s.gridLevel + 1, 2)}`,
@@ -356,6 +409,12 @@ export function buyItem(s: GameState, id: string): boolean {
     case 'smr': s.hasSMR = true; s.uranium = 100; break
     case 'wash': s.hasWash = true; break
     case 'oil': s.hasOil = true; break
+    case 'land-west': s.landWest = true; break
+    case 'coffee': s.hasCoffee = true; break
+    case 'restaurant': s.hasRestaurant = true; break
+    case 'truckpark': s.hasTruckPark = true; break
+    case 'airwater': s.hasAirWater = true; break
+    case 'selfwash': s.hasSelfWash = true; break
     default: return false
   }
   return true

@@ -7,7 +7,7 @@ const CAR_SPEED = 7
 const DEMAND_AMOUNTS = [100, 150, 200, 250, 300, 400]
 const DECISION_Y = -26 // yakın şeritte istasyona girme kararının verildiği nokta
 
-export type CarPhase = 'transit' | 'driving' | 'waiting' | 'atPump' | 'leaving' | 'gone'
+export type CarPhase = 'transit' | 'driving' | 'waiting' | 'atPump' | 'toPark' | 'parked' | 'leaving' | 'gone'
 export type CarKind = 'fuel' | 'ev'
 type BodyKind = 'sedan' | 'hatch' | 'suv'
 
@@ -150,9 +150,14 @@ export class Car {
   wantsToilet: boolean
   wantsWash: boolean
   wantsOil: boolean
+  wantsCoffee: boolean
+  wantsFood: boolean
+  wantsAir: boolean
   filled = 0
   nozzle: FuelType | null = null
   targetAmount = 0
+  /** pompa bu araca aktif dolum yapıyor (pompalar bağımsız çalışır) */
+  filling = false
   slotIndex = -1
   wrongFuelHandled = false
   beingServed = false
@@ -168,7 +173,21 @@ export class Car {
   constructor(scene: THREE.Scene, lib: ModelLib | null, kind: CarKind) {
     this.kind = kind
     if (kind === 'ev') {
-      this.group = lib?.evCar ? cloneModel(lib.evCar) : buildCarMesh('hatch', 0x35c7d6)
+      if (lib?.evCar) {
+        this.group = cloneModel(lib.evCar)
+        // EV'ler tek renk gelmesin: gövdeyi rastgele tonla boya
+        const EV_TINTS = [0xffffff, 0xffb9b9, 0xb9d4ff, 0xbdf5cd, 0xffe6a8, 0xe3c2ff, 0x9fe8f5]
+        const tint = EV_TINTS[Math.floor(Math.random() * EV_TINTS.length)]
+        this.group.traverse(o => {
+          const m = o as THREE.Mesh
+          if (m.isMesh && m.material) {
+            m.material = (m.material as THREE.Material).clone()
+            ;(m.material as THREE.MeshStandardMaterial).color?.setHex(tint)
+          }
+        })
+      } else {
+        this.group = buildCarMesh('hatch', 0x35c7d6)
+      }
     } else if (lib && lib.cars.length > 0) {
       this.group = cloneModel(lib.cars[Math.floor(Math.random() * lib.cars.length)])
     } else {
@@ -187,6 +206,9 @@ export class Car {
     this.wantsToilet = Math.random() < 0.3
     this.wantsWash = kind === 'fuel' && Math.random() < 0.25
     this.wantsOil = kind === 'fuel' && Math.random() < 0.12
+    this.wantsCoffee = Math.random() < 0.3
+    this.wantsFood = Math.random() < 0.18
+    this.wantsAir = kind === 'fuel' && Math.random() < 0.2
     scene.add(this.group)
 
     const mkBar = (c: number, z: number) => {
@@ -390,6 +412,9 @@ export class Tanker {
 }
 
 const WAIT_SPOTS = [new THREE.Vector3(3.6, -6.5, 0), new THREE.Vector3(3.6, -9.5, 0)]
+/** servis sonrası tesisleri kullanacak araçların otoparkı */
+export const PARK_SPOTS = [new THREE.Vector3(-2.2, 3.2, 0), new THREE.Vector3(-2.2, 1.2, 0), new THREE.Vector3(-2.2, -0.8, 0)]
+const PARK_LANE_Y = 4.8
 
 export interface CarManagerOpts {
   pumpCount: () => number
@@ -408,6 +433,7 @@ export class CarManager {
   private farTimer = 2.5
   private pumpOcc: (Car | null)[] = [null, null, null, null]
   private evOcc: (Car | null)[] = [null, null, null, null]
+  private parkOcc: (Car | null)[] = [null, null, null]
 
   constructor(private scene: THREE.Scene, private lib: ModelLib | null,
               private opts: CarManagerOpts) {}
@@ -553,16 +579,59 @@ export class CarManager {
     ], () => this.arriveAtSlot(car))
   }
 
-  releaseCar(car: Car) {
+  /** servis bitti, tesis kullanacak → otoparka çek. Yer yoksa false. */
+  sendToParking(car: Car): boolean {
+    let spot = -1
+    for (let i = 0; i < PARK_SPOTS.length; i++) if (!this.parkOcc[i]) { spot = i; break }
+    if (spot < 0) return false
+    // pompayı/şarjı hemen boşalt ki sıradaki müşteri girsin
     if (car.slotIndex >= 0) {
       if (car.kind === 'ev') this.evOcc[car.slotIndex] = null
+      else this.pumpOcc[car.slotIndex] = null
+    }
+    car.slotIndex = spot
+    this.parkOcc[spot] = car
+    car.phase = 'toPark'
+    car.beingServed = false
+    car.filling = false
+    car.hideBubble()
+    car.hideBars()
+    const p = PARK_SPOTS[spot]
+    car.setPath([
+      new THREE.Vector3(3.0, car.group.position.y, 0),
+      new THREE.Vector3(3.0, PARK_LANE_Y, 0),
+      new THREE.Vector3(-2.2, PARK_LANE_Y, 0),
+      p,
+    ], () => {
+      car.phase = 'parked'
+      car.group.rotation.z = Math.PI / 2
+    })
+    return true
+  }
+
+  releaseCar(car: Car) {
+    const fromPark = car.phase === 'parked' || car.phase === 'toPark'
+    if (car.slotIndex >= 0) {
+      if (fromPark) this.parkOcc[car.slotIndex] = null
+      else if (car.kind === 'ev') this.evOcc[car.slotIndex] = null
       else this.pumpOcc[car.slotIndex] = null
     }
     car.slotIndex = -1
     car.phase = 'leaving'
     car.beingServed = false
+    car.filling = false
     car.hideBubble()
     car.hideBars()
+    if (fromPark) {
+      car.setPath([
+        new THREE.Vector3(-2.2, PARK_LANE_Y, 0),
+        new THREE.Vector3(3.0, PARK_LANE_Y, 0),
+        new THREE.Vector3(4.2, APRON_OUT_Y, 0),
+        new THREE.Vector3(LANE_NEAR, APRON_OUT_Y + 4, 0),
+        new THREE.Vector3(LANE_NEAR, 44, 0),
+      ])
+      return
+    }
     const y = car.group.position.y
     car.setPath([
       new THREE.Vector3(3.4, Math.min(y + 3, APRON_OUT_Y - 1.8), 0),

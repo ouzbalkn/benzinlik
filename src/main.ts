@@ -94,11 +94,10 @@ function nextServableCar(): Car | null {
   return cars.cars.find(c => c.phase === 'atPump') ?? null
 }
 
-// ---- Pompa hortumu ----
-let hose: THREE.Group | null = null
-let hoseCar: Car | null = null
+// ---- Pompa hortumları (her pompa bağımsız, her aracın kendi hortumu) ----
+const hoses = new Map<Car, THREE.Group>()
 
-function buildHose(car: Car) {
+function buildHose(car: Car): THREE.Group {
   const y = car.slotIndex >= 0 ? PUMP_SLOTS_POS[car.slotIndex].y : car.group.position.y
   const start = new THREE.Vector3(0.3, y + 0.3, 1.3)
   const mid = new THREE.Vector3(0.85, y - 0.05, 0.5)
@@ -115,54 +114,167 @@ function buildHose(car: Car) {
   tip.position.z += 0.12
   g.add(tip)
   world.scene.add(g)
-  hose = g
-  hoseCar = car
+  return g
 }
 
-function removeHose() {
-  if (hose) { world.scene.remove(hose); hose = null; hoseCar = null }
+function syncHoses() {
+  for (const c of cars.cars) {
+    const need = c.kind === 'fuel' && c.phase === 'atPump' && !!c.nozzle && !c.wrongFuelHandled
+    if (need && !hoses.has(c)) hoses.set(c, buildHose(c))
+    else if (!need && hoses.has(c)) { world.scene.remove(hoses.get(c)!); hoses.delete(c) }
+  }
+  for (const [c, g] of hoses) {
+    if (c.phase !== 'atPump' || !cars.cars.includes(c)) {
+      world.scene.remove(g)
+      hoses.delete(c)
+    }
+  }
 }
 
-function syncHose() {
-  const car = ui.activeCar
-  const need = !!(car && car.kind === 'fuel' && car.phase === 'atPump' && car.nozzle && !car.wrongFuelHandled)
-  if (need && hoseCar !== car) { removeHose(); buildHose(car!) }
-  else if (!need && hose) removeHose()
+// ---- Memnuniyet, tesis ziyaretleri ve yayalar ----
+
+interface Visit {
+  buildingId: string
+  revenue: () => number
+  toastMsg: (m: number) => string
+  score: number
 }
 
-// ---- Memnuniyet ----
+/** araç park edip yayanın yürüyerek ziyaret edeceği tesisler */
+function facilityVisits(car: Car): Visit[] {
+  const v: Visit[] = []
+  if (car.wantsMarket && state.marketLevel > 0) {
+    v.push({ buildingId: 'market', revenue: () => Math.round((25 + Math.random() * 35) * state.marketLevel), toastMsg: m => `🛒 Market alışverişi: +₺${m}`, score: 0.2 })
+  }
+  if (car.wantsToilet && state.toiletLevel > 0) {
+    v.push({ buildingId: 'toilet', revenue: () => 0, toastMsg: () => '', score: 0.15 * state.toiletLevel })
+  }
+  if (car.wantsCoffee && state.hasCoffee) {
+    v.push({ buildingId: 'coffee', revenue: () => Math.round(20 + Math.random() * 25), toastMsg: m => `☕ Kahve satışı: +₺${m}`, score: 0.15 })
+  }
+  if (car.wantsFood && state.hasRestaurant) {
+    v.push({ buildingId: 'restaurant', revenue: () => Math.round(80 + Math.random() * 80), toastMsg: m => `🍽️ Restoran hesabı: +₺${m}`, score: 0.25 })
+  }
+  return v
+}
 
-function extrasScore(car: Car): number {
+/** olmayan tesisi arayan müşterinin hayal kırıklığı */
+function missingPenalty(car: Car): number {
   let d = 0
-  if (car.wantsToilet) {
-    if (state.toiletLevel > 0) d += 0.15 * state.toiletLevel
-    else { d -= 0.8; ui.toast('🚻 Müşteri tuvalet arıyordu, bulamadı!', 'bad') }
+  if (car.wantsToilet && state.toiletLevel === 0) { d -= 0.8; ui.toast('🚻 Müşteri tuvalet arıyordu, bulamadı!', 'bad') }
+  if (car.wantsMarket && state.marketLevel === 0) d -= 0.3
+  if (car.wantsCoffee && !state.hasCoffee) d -= 0.1
+  if (car.wantsFood && !state.hasRestaurant) d -= 0.1
+  if (car.wantsWash && !state.hasWash) d -= 0.25
+  if (car.wantsOil && !state.hasOil) d -= 0.15
+  return d
+}
+
+/** araç servisleri (yıkama, yağ, hava-su) — park gerektirmez */
+function vehicleServices(car: Car): number {
+  let d = 0
+  if (car.wantsWash && state.hasWash) {
+    const m = Math.round(60 + Math.random() * 60)
+    state.money += m; d += 0.2
+    ui.toast(`🚿 Araç yıkandı: +₺${m}`, 'good')
   }
-  if (car.wantsMarket) {
-    if (state.marketLevel > 0) {
-      const m = Math.round((25 + Math.random() * 35) * state.marketLevel)
-      state.money += m
-      d += 0.2
-      ui.toast(`🛒 Müşteri marketten alışveriş yaptı: +₺${m}`, 'good')
-    } else d -= 0.3
+  if (car.wantsOil && state.hasOil) {
+    const m = Math.round(150 + Math.random() * 100)
+    state.money += m; d += 0.25
+    ui.toast(`🔧 Yağ değişimi yapıldı: +₺${m}`, 'good')
   }
-  if (car.wantsWash) {
-    if (state.hasWash) {
-      const m = Math.round(60 + Math.random() * 60)
-      state.money += m
-      d += 0.2
-      ui.toast(`🚿 Araç yıkandı: +₺${m}`, 'good')
-    } else d -= 0.25
-  }
-  if (car.wantsOil) {
-    if (state.hasOil) {
-      const m = Math.round(150 + Math.random() * 100)
-      state.money += m
-      d += 0.25
-      ui.toast(`🔧 Yağ değişimi yapıldı: +₺${m}`, 'good')
-    } else d -= 0.15
+  if (car.wantsAir && state.hasAirWater) {
+    const m = Math.round(10 + Math.random() * 10)
+    state.money += m; d += 0.1
+    ui.toast(`💨 Hava-su: +₺${m}`, 'good')
   }
   return d
+}
+
+// yaya sistemi
+interface Walker {
+  g: THREE.Group
+  queue: { p: THREE.Vector3; wait: number }[]
+  wait: number
+  done: () => void
+}
+const walkers: Walker[] = []
+const pendingVisits = new Map<Car, { visits: Visit[]; score: number; started: boolean }>()
+
+function personMesh(): THREE.Group {
+  const g = new THREE.Group()
+  const SHIRTS = [0xd66a5b, 0x5b8def, 0x62b56b, 0xe0b13e, 0x9a7bd0]
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.5, 10),
+    new THREE.MeshLambertMaterial({ color: SHIRTS[Math.floor(Math.random() * SHIRTS.length)] }))
+  body.rotation.x = Math.PI / 2
+  body.position.z = 0.32
+  body.castShadow = true
+  g.add(body)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8),
+    new THREE.MeshLambertMaterial({ color: 0xf0c8a0 }))
+  head.position.z = 0.68
+  g.add(head)
+  return g
+}
+
+function spawnWalkerFor(car: Car, data: { visits: Visit[]; score: number }) {
+  const start = car.group.position.clone().add(new THREE.Vector3(0.8, -0.6, 0))
+  start.z = 0
+  const stops = data.visits
+    .map(v => world.buildings.find(b => b.id === v.buildingId))
+    .filter(b => !!b)
+    .map(b => {
+      const p = b!.group.position.clone()
+      p.x += 1.9; p.z = 0
+      return p
+    })
+  const g = personMesh()
+  g.position.copy(start)
+  world.scene.add(g)
+  const queue = stops.map(p => ({ p, wait: 1.4 }))
+  queue.push({ p: start.clone(), wait: 0 })
+  walkers.push({
+    g, queue, wait: 0,
+    done: () => {
+      let score = data.score
+      for (const v of data.visits) {
+        const m = v.revenue()
+        if (m > 0) { state.money += m; ui.toast(v.toastMsg(m), 'good') }
+        score += v.score
+      }
+      state.addRep((score - 3.3) * 0.08)
+      car.showFeedback(emojiFor(score))
+      cars.releaseCar(car)
+      pendingVisits.delete(car)
+    },
+  })
+}
+
+function updateWalkers(dt: number) {
+  for (let i = walkers.length - 1; i >= 0; i--) {
+    const w = walkers[i]
+    if (w.wait > 0) { w.wait -= dt; continue }
+    const target = w.queue[0]
+    if (!target) {
+      world.scene.remove(w.g)
+      walkers.splice(i, 1)
+      w.done()
+      continue
+    }
+    const d = new THREE.Vector3().subVectors(target.p, w.g.position)
+    d.z = 0
+    const dist = d.length()
+    const step = 2.4 * dt
+    if (dist <= step) {
+      w.g.position.copy(target.p)
+      w.wait = target.wait
+      w.queue.shift()
+    } else {
+      d.normalize()
+      w.g.position.addScaledVector(d, step)
+      w.g.rotation.z = Math.atan2(d.y, d.x)
+    }
+  }
 }
 
 function emojiFor(score: number): string {
@@ -177,7 +289,29 @@ ui.onNozzle = (car, type: FuelType) => {
 
 ui.onStart = (car, amount) => {
   car.targetAmount = amount
+  car.filling = true
   car.beingServed = true
+}
+
+/** servis bitti: skoru bağla, tesis ziyareti varsa otoparka çek, yoksa uğurla */
+function concludeService(car: Car, score: number) {
+  score += missingPenalty(car) + vehicleServices(car)
+  const visits = facilityVisits(car)
+  if (visits.length > 0 && cars.sendToParking(car)) {
+    pendingVisits.set(car, { visits, score, started: false })
+    ui.toast('🅿️ Müşteri aracını otoparka çekti, tesisleri kullanacak.', '')
+  } else {
+    // otopark doluysa ziyaret gelirleri yine gelsin (hızlı mod)
+    for (const v of visits) {
+      const m = v.revenue()
+      if (m > 0) { state.money += m; ui.toast(v.toastMsg(m), 'good') }
+      score += v.score
+    }
+    state.addRep((score - 3.3) * 0.08)
+    car.showFeedback(emojiFor(score))
+    cars.releaseCar(car)
+  }
+  if (ui.activeCar === car) ui.selectCar(nextServableCar())
 }
 
 function finishSale(car: Car) {
@@ -204,26 +338,20 @@ function finishSale(car: Car) {
     ui.toast(`🤏 Eksik doldurdun (₺${revenue0.toFixed(0)} ödendi)`, '')
   }
 
-  score += extrasScore(car)
   state.money += revenue
-  state.addRep((score - 3.3) * 0.08)
-  car.showFeedback(emojiFor(score))
-  ui.filling = false
-  removeHose()
-  cars.releaseCar(car)
-  ui.selectCar(nextServableCar())
+  car.filling = false
+  concludeService(car, score)
 }
 
 function wrongFuel(car: Car) {
   car.wrongFuelHandled = true
-  ui.filling = false
+  car.filling = false
   state.money -= WRONG_FUEL_PENALTY
   state.addRep(-0.4)
   ui.toast(`🚨 ${FUEL_LABEL[car.demandType]} isteyen araca ${FUEL_LABEL[car.nozzle!]} bastın! -${WRONG_FUEL_PENALTY} ₺`, 'bad')
   car.showFeedback('😡')
-  removeHose()
   cars.releaseCar(car)
-  ui.selectCar(nextServableCar())
+  if (ui.activeCar === car) ui.selectCar(nextServableCar())
 }
 
 // ---- EV şarj ----
@@ -242,11 +370,7 @@ ui.onChargeEV = car => {
   const revenue = kwh * EV_PRICE_PER_KWH
   state.money += revenue
   ui.toast(`⚡ ${kwh} kWh şarj: +₺${revenue}`, 'good')
-  score += extrasScore(car)
-  state.addRep((score - 3.3) * 0.08)
-  car.showFeedback(emojiFor(score))
-  cars.releaseCar(car)
-  ui.selectCar(nextServableCar())
+  concludeService(car, score)
 }
 
 // ---- Sipariş, inşaat, bakım ----
@@ -272,6 +396,12 @@ function buildVisual(id: string, pos?: THREE.Vector2) {
     case 'smr': world.buildSMR(state.landNorth ? 'north' : 'south', pos); break
     case 'wash': world.buildWash(pos); break
     case 'oil': world.buildOil(pos); break
+    case 'land-west': world.buyLand('west'); break
+    case 'coffee': world.buildCoffee(pos); break
+    case 'restaurant': world.buildRestaurant(pos); break
+    case 'truckpark': world.buildTruckPark(pos); break
+    case 'airwater': world.buildAirWater(pos); break
+    case 'selfwash': world.buildSelfWash(pos); break
   }
 }
 
@@ -284,8 +414,13 @@ const PLACEABLE: Record<string, () => { w: number; d: number }> = {
   solar: () => ({ w: 5, d: 7 }),
   dieselgen: () => ({ w: 2, d: 2 }),
   smr: () => ({ w: 6, d: 5 }),
-  wash: () => ({ w: 4.5, d: 4 }),
+  wash: () => ({ w: 4.5, d: 5 }),
   oil: () => ({ w: 4, d: 4 }),
+  coffee: () => ({ w: 3.2, d: 3.2 }),
+  restaurant: () => ({ w: 5.5, d: 6 }),
+  truckpark: () => ({ w: 8, d: 6 }),
+  airwater: () => ({ w: 1.6, d: 2 }),
+  selfwash: () => ({ w: 5.5, d: 7 }),
 }
 
 interface Rect { cx: number; cy: number; w: number; d: number }
@@ -295,9 +430,11 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
 function fixedObstacles(): Rect[] {
   const r: Rect[] = [
     { cx: 4.1, cy: 0, w: 3.0, d: 48 },      // servis şeridi (araç yolu)
-    { cx: -4.4, cy: -5.4, w: 5.6, d: 6.6 }, // yakıt tankları + borular
+    { cx: -4.4, cy: -5.4, w: 5.6, d: 6.6 }, // yakıt tankları
     { cx: -5.0, cy: 4.5, w: 4.8, d: 5.4 },  // ofis
     { cx: 4.0, cy: -11.5, w: 2.6, d: 3.8 }, // tabela
+    { cx: -2.2, cy: 1.2, w: 3.2, d: 6.6 },  // otopark
+    { cx: 0.2, cy: 4.8, w: 7.2, d: 1.8 },   // otopark yolu
   ]
   for (let i = 0; i < state.pumps; i++) r.push({ cx: 0.9, cy: PUMP_SLOTS_POS[i].y, w: 4.6, d: 4.2 })
   for (let i = 0; i < state.evChargers; i++) r.push({ cx: 1.2, cy: EV_SLOTS_POS[i].y, w: 4.2, d: 2.8 })
@@ -310,11 +447,21 @@ function overlaps(a: Rect, b: Rect): boolean {
 
 let placing: { id: string; w: number; d: number; ghost: THREE.Mesh; valid: boolean; cx: number; cy: number } | null = null
 
+function inOwnedLand(x: number, y: number): boolean {
+  if (x >= -6.3 && x <= 4.8) {
+    if (y >= -9.7 && y <= 9.7) return true
+    if (state.landSouth && y >= -23.7 && y < -9.7) return true
+    if (state.landNorth && y > 9.7 && y <= 23.7) return true
+  }
+  if (state.landWest && x >= -17.8 && x < -6.3 && y >= -9.7 && y <= 9.7) return true
+  return false
+}
+
 function isValidPlacement(p: Rect, skipId: string): boolean {
-  const yMin = state.landSouth ? -23.5 : -9.5
-  const yMax = state.landNorth ? 23.5 : 9.5
-  if (p.cx - p.w / 2 < -6.3 || p.cx + p.w / 2 > 4.8) return false
-  if (p.cy - p.d / 2 < yMin || p.cy + p.d / 2 > yMax) return false
+  // ayak izinin köşeleri, kenar ortaları ve merkezi sahip olunan arsada olmalı
+  for (const sx of [-1, 0, 1]) for (const sy of [-1, 0, 1]) {
+    if (!inOwnedLand(p.cx + sx * (p.w / 2 - 0.2), p.cy + sy * (p.d / 2 - 0.2))) return false
+  }
   for (const o of fixedObstacles()) if (overlaps(p, o)) return false
   for (const o of placedRects) if (o.id !== skipId && overlaps(p, o)) return false
   return true
@@ -388,6 +535,12 @@ function buyToast(id: string) {
     case 'smr': ui.toast('☢️ Reaktör devrede! ⚠️ BAKIMI ASLA AKSATMA — patlarsa her şey gider!', 'bad'); break
     case 'wash': ui.toast('🚿 Oto yıkama açıldı — müşteriler araç yıkatacak!', 'good'); break
     case 'oil': ui.toast('🔧 Yağ değişim istasyonu açıldı!', 'good'); break
+    case 'land-west': ui.toast('🏞️ Batı arsa satın alındı — geniş alan senin!', 'good'); break
+    case 'coffee': ui.toast('☕ Kahveci açıldı!', 'good'); break
+    case 'restaurant': ui.toast('🍽️ Restoran açıldı — yolcular yemek molası verecek!', 'good'); break
+    case 'truckpark': ui.toast('🚛 Tır parkı açıldı — düzenli konaklama geliri!', 'good'); break
+    case 'airwater': ui.toast('💨 Hava-su ünitesi kuruldu!', 'good'); break
+    case 'selfwash': ui.toast('🧽 Self yıkama açıldı — köpük ve su otomatik satılacak!', 'good'); break
   }
 }
 
@@ -398,6 +551,7 @@ if (new URLSearchParams(location.search).has('full')) {
     'tank', 'tank', 'tank', 'market', 'market', 'toilet', 'toilet', 'grid', 'grid',
     'battery', 'battery', 'battery', 'evcharger', 'evcharger', 'evcharger', 'evcharger',
     'solar', 'dieselgen', 'smr', 'wash', 'oil',
+    'land-west', 'airwater', 'selfwash', 'coffee', 'restaurant', 'truckpark',
   ]
   state.money = 10_000_000
   for (const id of FULL_ORDER) {
@@ -554,6 +708,36 @@ function buildingCard(id: string): BuildingCard | null {
           ['Kullanım oranı', '~%25'],
         ],
       }
+    case 'coffee':
+      return {
+        icon: '☕', name: 'Kahveci',
+        desc: 'Park eden müşteriler kahve molası verir.',
+        stats: [['Satış', '₺20-45'], ['Uğrama oranı', '~%30']],
+      }
+    case 'restaurant':
+      return {
+        icon: '🍽️', name: 'Restoran',
+        desc: 'Uzun yol müşterisi park edip yemek yer — yüksek hesap öder.',
+        stats: [['Hesap', '₺80-160'], ['Uğrama oranı', '~%18']],
+      }
+    case 'truckpark':
+      return {
+        icon: '🚛', name: 'Tır Parkı',
+        desc: 'Tırcılar konaklar; sen hiçbir şey yapmadan düzenli gelir akar.',
+        stats: [['Pasif gelir', '₺90-160 / ~45sn'], ['Trafik etkisi', '+%2']],
+      }
+    case 'airwater':
+      return {
+        icon: '💨', name: 'Hava-Su Ünitesi',
+        desc: 'Lastik havası ve su. Küçük gelir ama müşteri çeker.',
+        stats: [['Hizmet', '₺10-20'], ['Kullanım', '~%20']],
+      }
+    case 'selfwash':
+      return {
+        icon: '🧽', name: 'Self Yıkama',
+        desc: 'Araçlar bölmelere girip kendileri yıkar; köpük ve su otomatik satılır.',
+        stats: [['Pasif gelir', '₺30-60 / ~35sn'], ['Trafik etkisi', '+%2']],
+      }
     case 'oil':
       return {
         icon: '🔧', name: 'Yağ Değişimi',
@@ -650,7 +834,7 @@ function handleClick(e: PointerEvent) {
   if (carHits.length > 0) {
     let obj: THREE.Object3D | null = carHits[0].object
     while (obj && !obj.userData.car) obj = obj.parent
-    if (obj?.userData.car && !ui.filling) ui.selectCar(obj.userData.car as Car)
+    if (obj?.userData.car) ui.selectCar(obj.userData.car as Car)
     return
   }
 
@@ -756,27 +940,36 @@ function frame() {
     }
   }
 
-  const car = ui.activeCar
-  if (ui.filling && car && car.kind === 'fuel' && car.phase === 'atPump' && car.nozzle && !car.wrongFuelHandled) {
-    car.beingServed = true
+  // pompalar bağımsız: dolumdaki HER araç aynı anda ilerler
+  for (const c of [...cars.cars]) {
+    if (c.phase === 'atPump' && c.kind === 'fuel') c.beingServed = c.filling
+    if (!(c.filling && c.kind === 'fuel' && c.phase === 'atPump' && c.nozzle && !c.wrongFuelHandled)) continue
     if (state.tank <= 0) {
       ui.toast('🛢️ Ana tank boş kaldı! Satış yarım kaldı.', 'bad')
-      finishSale(car)
-    } else {
-      const amount = Math.min(FILL_RATE * dt, state.tank)
-      car.filled += amount
-      state.tank -= amount
-      if (car.nozzle !== car.demandType && car.filled > 1.5) {
-        wrongFuel(car)
-      } else if (car.filledValue >= car.targetAmount) {
-        finishSale(car)
-      }
+      finishSale(c)
+      continue
     }
-  } else if (car) {
-    car.beingServed = false
+    const amount = Math.min(FILL_RATE * dt, state.tank)
+    c.filled += amount
+    state.tank -= amount
+    if (c.nozzle !== c.demandType && c.filled > 1.5) {
+      wrongFuel(c)
+    } else if (c.filledValue >= c.targetAmount) {
+      finishSale(c)
+    }
   }
 
-  syncHose()
+  // park etmiş araçların yayaları
+  for (const [c, data] of pendingVisits) {
+    if (c.phase === 'parked' && !data.started) {
+      data.started = true
+      spawnWalkerFor(c, data)
+    }
+  }
+  updateWalkers(dt)
+
+  world.update(dt)
+  syncHoses()
   updateCamera()
   ui.update(state, dt)
   composer!.render()

@@ -15,7 +15,6 @@ export interface BuildingCard {
 
 export class UI {
   activeCar: Car | null = null
-  filling = false
 
   onNozzle: (car: Car, type: FuelType) => void = () => {}
   onStart: (car: Car, amount: number) => void = () => {}
@@ -105,9 +104,8 @@ export class UI {
     this.startBtn.addEventListener('click', () => {
       const car = this.activeCar
       const amt = Math.floor(Number(this.amount.value))
-      if (!car || !car.nozzle || !(amt > 0) || this.filling) return
+      if (!car || !car.nozzle || !(amt > 0) || car.filling || car.filled > 0) return
       this.onStart(car, amt)
-      this.filling = true
       this.refreshPanel()
     })
     this.chargeBtn.addEventListener('click', () => {
@@ -136,7 +134,7 @@ export class UI {
   }
 
   private pickNozzle(type: FuelType) {
-    if (!this.activeCar || this.activeCar.filled > 0 || this.filling) return
+    if (!this.activeCar || this.activeCar.filled > 0 || this.activeCar.filling) return
     this.onNozzle(this.activeCar, type)
     this.refreshPanel()
   }
@@ -148,7 +146,6 @@ export class UI {
 
   selectCar(car: Car | null) {
     this.activeCar = car
-    this.filling = false
     this.amount.value = ''
     this.refreshPanel()
   }
@@ -180,13 +177,13 @@ export class UI {
     this.demand.textContent = `🚗 Müşteri isteği: ₺${car.demandAmount} ${FUEL_LABEL[car.demandType]}`
     this.nozBenzin.classList.toggle('sel', car.nozzle === 'benzin')
     this.nozDizel.classList.toggle('sel', car.nozzle === 'dizel')
-    const locked = car.filled > 0 || this.filling
+    const locked = car.filled > 0 || car.filling
     this.nozBenzin.disabled = locked
     this.nozDizel.disabled = locked
-    this.amount.disabled = this.filling
+    this.amount.disabled = car.filling
     const amt = Math.floor(Number(this.amount.value))
-    this.startBtn.disabled = !car.nozzle || !(amt > 0) || this.filling || car.filled > 0
-    if (!this.filling && car.filled === 0) this.progress.textContent = 'Tabanca seç, tutar gir, başlat'
+    this.startBtn.disabled = !car.nozzle || !(amt > 0) || car.filling || car.filled > 0
+    if (!car.filling && car.filled === 0) this.progress.textContent = 'Tabanca seç, tutar gir, başlat'
   }
 
   // ---- bina bilgi kartı ----
@@ -288,7 +285,7 @@ export class UI {
     }
 
     const car = this.activeCar
-    if (car && car.phase === 'atPump' && car.kind === 'fuel' && (this.filling || car.filled > 0)) {
+    if (car && car.phase === 'atPump' && car.kind === 'fuel' && (car.filling || car.filled > 0)) {
       this.progress.textContent = `⛽ ${car.filled.toFixed(1)}L · ₺${car.filledValue.toFixed(0)} / ₺${car.targetAmount}`
     }
   }
