@@ -1410,22 +1410,6 @@ export class World {
       line.position.set(0, -2.1 + i * 1.4, 0.03)
       g.add(line)
     }
-    // park etmiş tırlar
-    const truck = (ty: number, c: number) => {
-      const t = new THREE.Group()
-      box(1.1, 1.1, 1.2, c, 2.2, 0, 0.75, t)
-      box(0.08, 0.9, 0.5, 0x394c60, 2.76, 0, 1.05, t)
-      box(3.4, 1.1, 1.3, 0xe8e6e1, -0.4, 0, 0.85, t)
-      for (const wx of [2.2, 0.4, -1.3]) for (const wy of [0.58, -0.58]) {
-        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.2, 12), lam(0x22262a))
-        w.position.set(wx, wy, 0.26)
-        t.add(w)
-      }
-      t.position.set(0, ty, 0)
-      g.add(t)
-    }
-    truck(-1.4, 0xd64545)
-    truck(1.4, 0x2f6fed)
     const sign = canvasPanel(2.6, 0.55, 420, 84, (ctx, w, h) => {
       ctx.fillStyle = '#39424e'; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 16); ctx.fill()
       ctx.fillStyle = '#fff'; ctx.font = '800 48px -apple-system, sans-serif'
@@ -1508,13 +1492,16 @@ export class World {
     return spots
   }
 
-  /** tır parkının dünya koordinatındaki park noktaları */
-  getTruckSpots(): THREE.Vector3[] {
+  /** tır parkı: park noktası + manevra (yanaşma) noktası çiftleri */
+  getTruckSpots(): { spot: THREE.Vector3; stage: THREE.Vector3 }[] {
     const b = this.buildings.find(x => x.id === 'truckpark')
     if (!b) return []
     const g = b.group as THREE.Group
     g.updateMatrixWorld(true)
-    return [-2.3, 0, 2.3].map(lx => new THREE.Vector3(lx, -1.0, 0).applyMatrix4(g.matrixWorld))
+    return [-1.4, 0, 1.4].map(ly => ({
+      spot: new THREE.Vector3(0, ly, 0).applyMatrix4(g.matrixWorld),
+      stage: new THREE.Vector3(5.4, ly, 0).applyMatrix4(g.matrixWorld),
+    }))
   }
 
   buildAirWater(pos?: THREE.Vector2, regId = 'airwater') {

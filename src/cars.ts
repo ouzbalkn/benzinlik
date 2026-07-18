@@ -207,6 +207,9 @@ export class Car {
   wantsTruckPark = false
   truckSlot = -1
   stayT = 0
+  /** geri geri park manevrası sürüyor */
+  reversing = false
+  truckStagePos: THREE.Vector3 | null = null
   /** aracın gizli yakıt ihtiyacı (litre) — tipine göre: binek/SUV/kamyon */
   hiddenNeedL = 30
   slotIndex = -1
@@ -377,7 +380,7 @@ export class Car {
       const d = new THREE.Vector3().subVectors(target, pos)
       d.z = 0
       const dist = d.length()
-      const step = CAR_SPEED * dt
+      const step = CAR_SPEED * dt * (this.reversing ? 0.45 : 1)
       if (dist <= step) {
         pos.copy(target)
         this.path.shift()
@@ -399,7 +402,7 @@ export class Car {
         const moved = mx !== pos.x || my !== pos.y
         pos.set(mx, my, pos.z)
         if (moved) {
-          const yaw = Math.atan2(d.y, d.x)
+          const yaw = Math.atan2(d.y, d.x) + (this.reversing ? Math.PI : 0)
           let diff = yaw - this.group.rotation.z
           while (diff > Math.PI) diff -= Math.PI * 2
           while (diff < -Math.PI) diff += Math.PI * 2
@@ -562,8 +565,8 @@ export interface CarManagerOpts {
   gateOutY: () => number
   /** işgalci yüzünden şarj bulamayıp giden EV müşterisi */
   onEvTurnedAway?: () => void
-  /** tır parkı noktaları */
-  truckSpots: () => THREE.Vector3[]
+  /** tır parkı noktaları (park + manevra noktası) */
+  truckSpots: () => { spot: THREE.Vector3; stage: THREE.Vector3 }[]
   /** tır park ücreti tahsilatı */
   onTruckParked?: (car: Car) => void
   onCarReady: (car: Car) => void
@@ -758,19 +761,25 @@ export class CarManager {
     this.truckOcc[si] = car
     car.truckSlot = si
     car.phase = 'toPark'
-    const spot = spots[si]
+    const { spot, stage } = spots[si]
+    car.truckStagePos = stage.clone()
     const from = car.group.position
     const path: THREE.Vector3[] = []
     if (from.x > 5) { // yoldan geliyor: kapıdan gir
       path.push(new THREE.Vector3(LANE_NEAR, this.opts.gateInY() - 3.5, 0))
       path.push(new THREE.Vector3(4.2, this.opts.gateInY(), 0))
     }
-    path.push(new THREE.Vector3(4.0, spot.y, 0))
-    path.push(spot.clone())
+    path.push(new THREE.Vector3(4.0, stage.y, 0))
+    path.push(stage.clone())
     car.setPath(path, () => {
-      car.phase = 'parked'
-      car.stayT = 14 + Math.random() * 18
-      this.opts.onTruckParked?.(car)
+      // manevra noktasına geldi: geri geri yanaş (cool kısım)
+      car.reversing = true
+      car.setPath([spot.clone()], () => {
+        car.reversing = false
+        car.phase = 'parked'
+        car.stayT = 14 + Math.random() * 18
+        this.opts.onTruckParked?.(car)
+      })
     })
     return true
   }
@@ -789,11 +798,13 @@ export class CarManager {
     if (car.truckSlot >= 0) this.truckOcc[car.truckSlot] = null
     car.truckSlot = -1
     car.phase = 'leaving'
-    car.setPath([
-      new THREE.Vector3(4.2, this.opts.gateOutY(), 0),
-      new THREE.Vector3(LANE_NEAR, this.opts.gateOutY() + 4, 0),
-      new THREE.Vector3(LANE_NEAR, 44, 0),
-    ])
+    const out: THREE.Vector3[] = []
+    if (car.truckStagePos) out.push(car.truckStagePos.clone()) // önce ileri çık
+    out.push(new THREE.Vector3(4.2, this.opts.gateOutY(), 0))
+    out.push(new THREE.Vector3(LANE_NEAR, this.opts.gateOutY() + 4, 0))
+    out.push(new THREE.Vector3(LANE_NEAR, 44, 0))
+    car.truckStagePos = null
+    car.setPath(out)
   }
 
   private truckOcc: (Car | null)[] = []

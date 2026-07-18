@@ -745,7 +745,7 @@ function hardRects(): { cx: number; cy: number; w: number; d: number }[] {
   if (of) r.push({ cx: of.group.position.x, cy: of.group.position.y, w: 4.2, d: 4.6 })
   for (const p of placedRects) {
     if (p.id.startsWith('parking') || p.id === 'gatein' || p.id === 'gateout') continue
-    if (p.id.startsWith('pump-') || p.id.startsWith('charger-') || p.id === 'tank') continue
+    if (p.id.startsWith('pump-') || p.id.startsWith('charger-') || p.id === 'tank' || p.id === 'truckpark') continue
     r.push({ cx: p.cx, cy: p.cy, w: p.w, d: p.d })
   }
   return r
