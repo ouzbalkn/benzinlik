@@ -122,6 +122,7 @@ const [modelLib, staticLib] = await Promise.all([loadModels(), loadStatics()])
 
 const world = new World(staticLib)
 const state = new GameState()
+world.isPavedFn = (c, r) => state.isPaved(c, r)
 const ui = new UI()
 ui.batteryKwh = () => state.battery
 ui.tankerStatus = () => {

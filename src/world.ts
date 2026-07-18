@@ -309,7 +309,7 @@ export class World {
       j.position.set(-0.75, y, 0.02)
       s.add(j)
     }
-    box(0.25, 20.4, 0.16, 0xd8dbde, -6.55, 0, 0.08, s)
+    this.kerbs.set('0,1:W', box(0.25, 20.4, 0.16, 0xd8dbde, -6.55, 0, 0.08, s))
     // yol tarafı bordürü (rampalar arasında)
     box(0.18, 12.2, 0.14, 0xd8dbde, 5.02, 0, 0.07, s)
 
@@ -764,6 +764,10 @@ export class World {
   }
 
   private ownedMarks = new Map<string, THREE.Group>()
+  /** arsa kenarı bordürleri: komşu betonlanınca aradaki otomatik kalkar */
+  private kerbs = new Map<string, THREE.Mesh>()
+  /** main bağlar: parsel betonlu mu? */
+  isPavedFn: (c: number, r: number) => boolean = () => false
   /** arsalara denk gelebilecek doğal dekor (ağaç/taş/çiçek) — beton dökülünce temizlenir */
   private decor: { obj: THREE.Object3D; x: number; y: number }[] = []
 
@@ -839,11 +843,41 @@ export class World {
       j.position.set(jx, (y0 + y1) / 2, 0.02)
       this.scene.add(j)
     }
-    // her betonlu arsaya çevre bordürü (yola bakan kenar hariç: col0 doğu, col3 batı)
-    if (c !== 3) box(0.18, d - 0.1, 0.13, 0xd8dbde, x0 + 0.1, (y0 + y1) / 2, 0.065, this.scene)
-    if (c !== 0) box(0.18, d - 0.1, 0.13, 0xd8dbde, x1 - 0.1, (y0 + y1) / 2, 0.065, this.scene)
-    box(w - 0.1, 0.18, 0.13, 0xd8dbde, (x0 + x1) / 2, y0 + 0.1, 0.065, this.scene)
-    box(w - 0.1, 0.18, 0.13, 0xd8dbde, (x0 + x1) / 2, y1 - 0.1, 0.065, this.scene)
+    // çevre bordürü: yola bakan kenarlar hariç; betonlu komşuya bakan kenarda
+    // bordür KONMAZ ve komşunun o kenardaki bordürü de sökülür (kesintisiz beton)
+    const kerbKey = (cc: number, rr: number, e: string) => `${cc},${rr}:${e}`
+    const findCol = (edgeX: number, side: 0 | 1): number | null => {
+      for (let i = 0; i < PARCEL_COLS.length; i++) {
+        if (Math.abs(PARCEL_COLS[i][side] - edgeX) < 0.01) return i
+      }
+      return null
+    }
+    const addKerbEdge = (e: 'N' | 'S' | 'W' | 'E') => {
+      let mesh: THREE.Mesh
+      if (e === 'W') mesh = box(0.18, d - 0.1, 0.13, 0xd8dbde, x0 + 0.1, (y0 + y1) / 2, 0.065, this.scene)
+      else if (e === 'E') mesh = box(0.18, d - 0.1, 0.13, 0xd8dbde, x1 - 0.1, (y0 + y1) / 2, 0.065, this.scene)
+      else if (e === 'S') mesh = box(w - 0.1, 0.18, 0.13, 0xd8dbde, (x0 + x1) / 2, y0 + 0.1, 0.065, this.scene)
+      else mesh = box(w - 0.1, 0.18, 0.13, 0xd8dbde, (x0 + x1) / 2, y1 - 0.1, 0.065, this.scene)
+      this.kerbs.set(kerbKey(c, r, e), mesh)
+    }
+    const tryEdge = (e: 'N' | 'S' | 'W' | 'E', nb: [number, number] | null, opp: string, roadFacing: boolean) => {
+      if (roadFacing) return
+      if (nb && this.isPavedFn(nb[0], nb[1])) {
+        const nk = this.kerbs.get(kerbKey(nb[0], nb[1], opp))
+        if (nk) {
+          this.scene.remove(nk)
+          this.kerbs.delete(kerbKey(nb[0], nb[1], opp))
+        }
+        return
+      }
+      addKerbEdge(e)
+    }
+    const wc = findCol(x0, 1) // batımdaki komşu (onun doğu kenarı = benim batım)
+    const ec = findCol(x1, 0) // doğumdaki komşu
+    tryEdge('W', wc !== null ? [wc, r] : null, 'E', c === 3)
+    tryEdge('E', ec !== null ? [ec, r] : null, 'W', c === 0)
+    tryEdge('N', r < 2 ? [c, r + 1] : null, 'S', false)
+    tryEdge('S', r > 0 ? [c, r - 1] : null, 'N', false)
     // istasyon kolonunun yol tarafı özel: rampa + bordür + lamba
     if (c === 0 && r === 0) {
       this.makeApron(APRON_SOUTH_Y)
