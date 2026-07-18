@@ -469,29 +469,43 @@ ui.onDismiss = car => {
   if (ui.activeCar === car) ui.selectCar(nextServableCar())
 }
 
+/** batarya deposu seviyesine göre araca akış hızı (kWh/sn) */
+const DISCHARGE_RATE = [0, 15, 25, 40]
+
 ui.onChargeEV = car => {
-  if (car.phase !== 'atPump') return
-  const avail = Math.floor(state.battery)
-  if (avail < 5) {
-    ui.toast(`Bataryada elektrik yok (${avail} kWh) — şebekeden doluyor, biraz bekle. Santral kurarsan çok daha hızlı dolar.`, 'bad')
+  if (car.phase !== 'atPump' || car.charging) return
+  if (state.battery < 1) {
+    ui.toast('Bataryada elektrik yok — şebekeden/santralden dolmasını bekle.', 'bad')
     return
   }
-  let kwh = Math.min(car.demandKwh, avail)
-  const partial = kwh < car.demandKwh
-  let score = partial ? 3.2 : 4.5
-  if (car.patienceFrac < 0.4) score -= 1.5
   if (state.dieselRunning() && Math.random() < 0.35) {
-    kwh = Math.ceil(kwh / 2)
-    score = 2.5
-    ui.toast('🔊 Jeneratör gürültüsünden rahatsız oldu, yarım şarjla gitti!', 'bad')
+    car.demandKwh = Math.ceil(car.demandKwh / 2)
+    ui.toast('🔊 Jeneratör gürültüsünden rahatsız — yarısı kadar şarj isteyecek!', 'bad')
   }
-  state.battery -= kwh
-  const revenue = Math.round(kwh * state.elecPrice)
-  state.money += revenue
-  ui.toast(partial
-    ? `⚡ Kısmi şarj ${kwh}/${car.demandKwh} kWh: +₺${revenue} (batarya yetmedi)`
-    : `⚡ ${kwh} kWh şarj: +₺${revenue}`, partial ? '' : 'good')
-  concludeService(car, score)
+  car.charging = true
+  car.beingServed = true
+}
+
+/** kademeli EV şarjı: depo → araç akışı */
+function tickEvCharging(dt: number) {
+  const cap = DISCHARGE_RATE[state.batteryLevel] || 0
+  for (const c of cars.cars) {
+    if (!c.charging) continue
+    if (c.phase !== 'atPump') { c.charging = false; continue }
+    const need = c.demandKwh - c.chargedKwh
+    const give = Math.min(need, cap * dt, state.battery)
+    state.battery = Math.max(0, state.battery - give)
+    c.chargedKwh += give
+    if (c.chargedKwh >= c.demandKwh - 0.001) {
+      c.charging = false
+      const revenue = Math.round(c.demandKwh * state.elecPrice)
+      state.money += revenue
+      let score = 4.5
+      if (c.patienceFrac < 0.4) score -= 1.5
+      ui.toast(`⚡ ${c.demandKwh} kWh şarj tamamlandı: +₺${revenue}`, 'good')
+      concludeService(c, score)
+    }
+  }
 }
 
 // ---- Sipariş, inşaat, bakım ----
@@ -892,8 +906,16 @@ function cancelPlacement() {
 
 /** taşımayı uygula — pompa/şarj/tank özel, kalanlar buildVisual */
 function applyDynamicMove(id: string, cx: number, cy: number) {
-  if (id.startsWith('pump-')) world.movePump(parseInt(id.slice(5)), new THREE.Vector2(cx - 0.9, cy))
-  else if (id.startsWith('charger-')) world.moveCharger(parseInt(id.slice(8)), new THREE.Vector2(cx - 0.5, cy))
+  if (id.startsWith('pump-')) {
+    const n = parseInt(id.slice(5))
+    cars.evictSlot('fuel', n) // slottaki araç eski koordinatta asılı kalmasın
+    world.movePump(n, new THREE.Vector2(cx - 0.9, cy))
+  }
+  else if (id.startsWith('charger-')) {
+    const n = parseInt(id.slice(8))
+    cars.evictSlot('ev', n)
+    world.moveCharger(n, new THREE.Vector2(cx - 0.5, cy))
+  }
   else if (id === 'tank') world.moveTank(new THREE.Vector2(cx, cy))
   else {
     world.removeBuildingGroup(id)
@@ -1309,6 +1331,7 @@ function buildingCard(id: string): BuildingCard | null {
         stats: [
           ['Dolu', `${Math.floor(state.battery)} / ${state.batteryCapacity} kWh`],
           ['Üretim', `+${state.genRate().toFixed(1)} kWh/sn (şebeke dahil)`, 'good'],
+          ['Araca akış', `${[0, 15, 25, 40][state.batteryLevel]} kWh/sn`],
           ['Üretim', `+${rate.toFixed(1)} kWh/sn`, rate > 0 ? 'good' : ''],
           ['Seviye', `${state.batteryLevel}/3`],
         ],
@@ -1699,7 +1722,7 @@ function frame() {
   // jeneratör gürültüsü EV sabrını tüketir
   if (state.dieselRunning()) {
     for (const c of cars.cars) {
-      if (c.kind === 'ev' && (c.phase === 'atPump' || c.phase === 'waiting')) c.patience -= dt * 1.2
+      if (c.kind === 'ev' && !c.charging && (c.phase === 'atPump' || c.phase === 'waiting')) c.patience -= dt * 1.2
     }
   }
 
@@ -1779,6 +1802,7 @@ function frame() {
 
   world.update(dt)
   audio.setDiesel(state.dieselRunning() && !state.closed)
+  tickEvCharging(dt)
   syncHoses()
   updateCamera()
   ui.update(state, dt)

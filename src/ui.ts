@@ -314,12 +314,15 @@ export class UI {
       this.demand.innerHTML = `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
         `<span class="fpill" style="background:#1fa8bc">ELEKTRİK</span><span class="damt">${car.demandKwh} kWh</span>`
       const have = this.batteryKwh()
-      const enough = have >= car.demandKwh
-      this.chargeBtn.disabled = !enough
-      this.chargeBtn.textContent = `HIZLI ŞARJ (${car.demandKwh} kWh)`
-      this.evNote.textContent = enough
-        ? 'Batarya hazır — anında şarj, müşteri hemen yola çıkar.'
-        : `Bataryada yeterli enerji yok (${Math.floor(have)}/${car.demandKwh} kWh).`
+      this.chargeBtn.disabled = car.charging || have < 1
+      this.setText(this.chargeBtn, car.charging
+        ? `ŞARJ OLUYOR — ${Math.floor(car.chargedKwh)}/${car.demandKwh} kWh`
+        : `ŞARJ BAŞLAT (${car.demandKwh} kWh)`)
+      this.setText(this.evNote, car.charging
+        ? 'Depodan araca enerji akıyor... depo seviyesi akış hızını belirler.'
+        : have < 1
+          ? `Bataryada enerji yok (${Math.floor(have)} kWh) — dolmasını bekle.`
+          : `Depoda ${Math.floor(have)} kWh hazır — şarjı başlat.`)
       return
     }
 

@@ -162,6 +162,9 @@ export class Car {
   fullMode = false
   /** müşteri özellikle 'FULLE' istiyor (tutar girilemez) */
   wantsFull = false
+  /** EV: kademeli şarj sürüyor */
+  charging = false
+  chargedKwh = 0
   /** aracın gizli yakıt ihtiyacı (litre) — tipine göre: binek/SUV/kamyon */
   hiddenNeedL = 30
   slotIndex = -1
@@ -747,6 +750,15 @@ export class CarManager {
       car.group.rotation.z = -Math.PI / 2
     })
     return true
+  }
+
+  /** slotta duran ya da slota sürmekte olan araçları uğurla (ünite taşınırken) */
+  evictSlot(kind: 'fuel' | 'ev', i: number) {
+    for (const car of [...this.cars]) {
+      if (car.slotIndex !== i) continue
+      if (kind === 'ev' ? car.kind !== 'ev' : car.kind === 'ev') continue
+      if (car.phase === 'driving' || car.phase === 'atPump') this.releaseCar(car)
+    }
   }
 
   releaseCar(car: Car) {
