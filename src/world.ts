@@ -304,11 +304,7 @@ export class World {
     lot.position.set(-0.75, 0, 0.015)
     lot.receiveShadow = true
     s.add(lot)
-    for (let y = -8; y <= 8; y += 4) {
-      const j = new THREE.Mesh(new THREE.PlaneGeometry(11.5, 0.06), lam(0x7e858d))
-      j.position.set(-0.75, y, 0.02)
-      s.add(j)
-    }
+    this.paveJoints(-6.5, 5, -10, 10)
     this.kerbs.set('0,1:W', box(0.25, 20.4, 0.16, 0xd8dbde, -6.55, 0, 0.08, s))
     // yol tarafı bordürü (rampalar arasında)
     box(0.18, 12.2, 0.14, 0xd8dbde, 5.02, 0, 0.07, s)
@@ -764,6 +760,24 @@ export class World {
   }
 
   private ownedMarks = new Map<string, THREE.Group>()
+
+  /** beton derzleri: hepsi aynı yönde (↗), dünya gridine hizalı — arsalar arası bütün görünür */
+  private paveJoints(x0: number, x1: number, y0: number, y1: number) {
+    const SPACING = 5
+    const kMin = Math.ceil((x0 - y1) / SPACING) * SPACING
+    const kMax = Math.floor((x1 - y0) / SPACING) * SPACING
+    for (let k = kMin; k <= kMax; k += SPACING) {
+      const xa = Math.max(x0, y0 + k)
+      const xb = Math.min(x1, y1 + k)
+      if (xb - xa < 0.8) continue
+      const len = (xb - xa) * Math.SQRT2 - 0.4
+      const mx = (xa + xb) / 2
+      const joint = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.06), lam(0x7e858d))
+      joint.position.set(mx, mx - k, 0.02)
+      joint.rotation.z = Math.PI / 4
+      this.scene.add(joint)
+    }
+  }
   /** arsa kenarı bordürleri: komşu betonlanınca aradaki otomatik kalkar */
   private kerbs = new Map<string, THREE.Mesh>()
   /** main bağlar: parsel betonlu mu? */
@@ -832,17 +846,8 @@ export class World {
     lot.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0.015)
     lot.receiveShadow = true
     this.scene.add(lot)
-    // beton derz çizgileri — zemin yavan durmasın
-    for (let jy = y0 + 4; jy < y1 - 0.5; jy += 4) {
-      const j = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.3, 0.06), lam(0x7e858d))
-      j.position.set((x0 + x1) / 2, jy, 0.02)
-      this.scene.add(j)
-    }
-    for (let jx = x0 + 4; jx < x1 - 0.5; jx += 4) {
-      const j = new THREE.Mesh(new THREE.PlaneGeometry(0.06, d - 0.3), lam(0x7e858d))
-      j.position.set(jx, (y0 + y1) / 2, 0.02)
-      this.scene.add(j)
-    }
+    // beton derz çizgileri: dünya-hizalı ↗ çaprazlar, komşu betonlarla kesintisiz
+    this.paveJoints(x0, x1, y0, y1)
     // çevre bordürü: yola bakan kenarlar hariç; betonlu komşuya bakan kenarda
     // bordür KONMAZ ve komşunun o kenardaki bordürü de sökülür (kesintisiz beton)
     const kerbKey = (cc: number, rr: number, e: string) => `${cc},${rr}:${e}`
