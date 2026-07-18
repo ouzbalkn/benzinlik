@@ -674,6 +674,14 @@ function thumbKey(id: string): string {
 function buildThumbSubject(id: string): THREE.Group | null {
   const special = world.thumbSource(id)
   if (special) return special
+  // bina sahnede zaten varsa görseli KOPYASINDAN üret — gerçek binaya asla dokunma
+  const existing = world.buildings.find(b => b.id === id)
+  if (existing) {
+    const g = (existing.group as THREE.Group).clone(true)
+    g.position.set(0, 0, 0)
+    g.rotation.z = 0
+    return g
+  }
   if (id === 'pump') {
     const i = Math.min(state.pumps, 3)
     world.addPump(i)
