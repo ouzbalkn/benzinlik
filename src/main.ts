@@ -373,6 +373,13 @@ ui.onStart = (car, amount) => {
   car.beingServed = true
 }
 
+ui.onStartFull = car => {
+  // FULLE: gizli depo ihtiyacına kadar bas — ne tutacağı sonda belli olur
+  car.fullMode = true
+  car.filling = true
+  car.beingServed = true
+}
+
 /** servis bitti: skoru bağla, tesis ziyareti varsa otoparka çek, yoksa uğurla */
 function trackDaily() {
   state.dailyServed++

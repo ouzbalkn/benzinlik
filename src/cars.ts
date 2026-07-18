@@ -131,7 +131,7 @@ function emojiSprite(emoji: string): THREE.Sprite {
   return sp
 }
 
-import { ModelLib, cloneModel } from './models'
+import { ModelLib, cloneModel, CAR_FILES } from './models'
 
 export class Car {
   group: THREE.Group
@@ -158,6 +158,10 @@ export class Car {
   targetAmount = 0
   /** pompa bu araca aktif dolum yapıyor (pompalar bağımsız çalışır) */
   filling = false
+  /** FULLE modu: gizli depo ihtiyacına kadar doldurulur */
+  fullMode = false
+  /** aracın gizli yakıt ihtiyacı (litre) — tipine göre: binek/SUV/kamyon */
+  hiddenNeedL = 30
   slotIndex = -1
   /** rezerve edilen bekleme noktası (yoksa -1) */
   waitIndex = -1
@@ -198,11 +202,16 @@ export class Car {
         this.group = buildCarMesh('hatch', 0x35c7d6)
       }
     } else if (lib && lib.cars.length > 0) {
-      this.group = cloneModel(lib.cars[Math.floor(Math.random() * lib.cars.length)])
+      const idx = Math.floor(Math.random() * lib.cars.length)
+      this.group = cloneModel(lib.cars[idx])
+      const name = CAR_FILES[idx] ?? 'sedan'
+      const cap = /van|delivery|truck/.test(name) ? 110 : /suv/.test(name) ? 65 : 45
+      this.hiddenNeedL = Math.round(cap * (0.55 + Math.random() * 0.35))
     } else {
       const kinds: BodyKind[] = ['sedan', 'sedan', 'hatch', 'hatch', 'suv']
       const bk = kinds[Math.floor(Math.random() * kinds.length)]
       this.group = buildCarMesh(bk, CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)])
+      this.hiddenNeedL = Math.round((bk === 'suv' ? 65 : 45) * (0.55 + Math.random() * 0.35))
     }
     this.group.userData.car = this
     const fr = Math.random()

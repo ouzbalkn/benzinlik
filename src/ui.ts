@@ -74,6 +74,7 @@ export class UI {
 
   onNozzle: (car: Car, type: FuelType) => void = () => {}
   onStart: (car: Car, amount: number) => void = () => {}
+  onStartFull: (car: Car) => void = () => {}
   onChargeEV: (car: Car) => void = () => {}
   onDismiss: (car: Car) => void = () => {}
   onOrderFuel: (f: FuelType) => void = () => {}
@@ -236,6 +237,12 @@ export class UI {
       this.onStart(car, amt)
       this.refreshPanel()
     })
+    el<HTMLButtonElement>('fullbtn').addEventListener('click', () => {
+      const car = this.activeCar
+      if (!car || !car.nozzle || car.filling || car.filled > 0) return
+      this.onStartFull(car)
+      this.refreshPanel()
+    })
     this.chargeBtn.addEventListener('click', () => {
       if (this.activeCar?.kind === 'ev') this.onChargeEV(this.activeCar)
     })
@@ -328,7 +335,8 @@ export class UI {
     this.amount.disabled = car.filling
     const amt = Math.floor(Number(this.amount.value))
     this.startBtn.disabled = !car.nozzle || !(amt > 0) || car.filling || car.filled > 0
-    if (!car.filling && car.filled === 0) this.progress.textContent = 'Tabanca seç, tutar gir, başlat'
+    el<HTMLButtonElement>('fullbtn').disabled = !car.nozzle || car.filling || car.filled > 0
+    if (!car.filling && car.filled === 0) this.progress.textContent = 'Tabanca seç; tutar gir ya da FULLE'
   }
 
   // ---- bina bilgi kartı ----
@@ -513,7 +521,9 @@ export class UI {
 
     const car = this.activeCar
     if (car && car.phase === 'atPump' && car.kind === 'fuel' && (car.filling || car.filled > 0)) {
-      this.progress.textContent = `${car.filled.toFixed(1)}L · ₺${car.filledValue.toFixed(0)} / ₺${car.targetAmount}`
+      this.progress.textContent = car.fullMode
+        ? `${car.filled.toFixed(1)}L · ₺${car.filledValue.toFixed(0)} / FULL`
+        : `${car.filled.toFixed(1)}L · ₺${car.filledValue.toFixed(0)} / ₺${car.targetAmount}`
     }
   }
 

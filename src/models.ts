@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 // Kenney Car Kit (CC0, kenney.nl) — modeller Y-up ve +Z'ye bakar.
 // Bizim dünya: z yukarı, araç ileri yönü +x. Sarmalayıcı gruplarla çeviriyoruz.
 
-const CAR_FILES = [
+export const CAR_FILES = [
   'sedan', 'sedan-sports', 'suv', 'suv-luxury', 'hatchback-sports',
   'van', 'delivery', 'taxi', 'truck',
 ]
