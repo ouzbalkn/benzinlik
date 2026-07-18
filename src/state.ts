@@ -120,6 +120,14 @@ export class GameState {
   day = 1
   dayStartMoney = 4000
   achievements = new Set<string>()
+  lastLoginDate = ''
+  loginStreak = 0
+  dailyDate = ''
+  dailyServed = 0
+  dailyDone = false
+  /** süreli fırsat: cheapFuel = yakıt maliyeti %50, rush = müşteri patlaması */
+  promo: { type: 'cheapFuel' | 'rush'; until: number } | null = null
+  private promoTimer = 150
 
   owns(c: number, r: number) { return this.ownedParcels.has(parcelKey(c, r)) }
   isPaved(c: number, r: number) { return this.pavedParcels.has(parcelKey(c, r)) }
@@ -225,6 +233,23 @@ export class GameState {
         this.exploded = true
       }
     }
+    // süreli fırsatlar
+    if (this.promo && Date.now() > this.promo.until) {
+      this.events.push(this.promo.type === 'cheapFuel' ? 'Yakıt indirimi sona erdi.' : 'Müşteri patlaması sona erdi.')
+      this.promo = null
+    }
+    if (!this.promo) {
+      this.promoTimer -= dt
+      if (this.promoTimer <= 0) {
+        this.promoTimer = 240 + Math.random() * 120
+        const type = Math.random() < 0.5 ? 'cheapFuel' as const : 'rush' as const
+        this.promo = { type, until: Date.now() + 60_000 }
+        this.events.push(type === 'cheapFuel'
+          ? 'FIRSAT: 60 saniye boyunca yakıt siparişi YARI FİYAT!'
+          : 'FIRSAT: 60 saniye müşteri patlaması — pompalara koş!')
+      }
+    }
+
     // pasif gelirler
     if (this.hasTruckPark) {
       this.truckTimer -= dt
@@ -267,7 +292,8 @@ export class GameState {
   /** yoldan geçen bir aracın istasyona girme olasılığı */
   entryChance() {
     if (this.closed) return 0
-    const c = 0.32 + 0.1 * this.signLevel + 0.05 * (this.reputation - 3)
+    const boost = this.promo?.type === 'rush' ? 1.5 : 1
+    const c = boost * (0.32 + 0.1 * this.signLevel + 0.05 * (this.reputation - 3))
       + 0.04 * this.marketLevel + 0.02 * this.toiletLevel + 0.02 * this.evChargers
       + (this.hasWash ? 0.03 : 0) + (this.hasOil ? 0.03 : 0)
       + (this.hasCoffee ? 0.02 : 0) + (this.hasRestaurant ? 0.03 : 0)
@@ -277,7 +303,10 @@ export class GameState {
   }
 
   orderNeed(f: FuelType) { return Math.floor(this.tankCapacity - this.tanks[f]) }
-  orderCost(f: FuelType) { return Math.ceil(this.orderNeed(f) * FUEL_COST[f]) }
+  orderCost(f: FuelType) {
+    const disc = this.promo?.type === 'cheapFuel' ? 0.5 : 1
+    return Math.ceil(this.orderNeed(f) * FUEL_COST[f] * disc)
+  }
 
   canOrder(f: FuelType) {
     return !this.orders[f].pending && this.orderNeed(f) >= 100 && this.money >= this.orderCost(f)
@@ -484,6 +513,7 @@ const SAVE_FIELDS = [
   'gridLevel', 'evChargers', 'batteryLevel', 'battery', 'hasSolar', 'hasDiesel', 'hasSMR',
   'hasWash', 'hasOil', 'hasCoffee', 'hasRestaurant', 'hasTruckPark', 'hasAirWater', 'hasSelfWash', 'hasParking',
   'solarDirt', 'smrWear', 'uranium', 'day', 'dayStartMoney', 'closed',
+  'lastLoginDate', 'loginStreak', 'dailyDate', 'dailyServed', 'dailyDone',
 ] as const
 
 export function serializeState(s: GameState): Record<string, unknown> {

@@ -407,6 +407,7 @@ export class UI {
     this.money.textContent = Math.round(state.money).toLocaleString('tr-TR')
     this.day.textContent = `${state.day}`
     this.rep.textContent = state.reputation.toFixed(1)
+    el<HTMLSpanElement>('quest').textContent = state.dailyDone ? 'TAMAM' : `${state.dailyServed}/15`
 
     // yakıt türü başına tank barları + sipariş modalı satırları
     let anyLow = false

@@ -316,7 +316,20 @@ ui.onStart = (car, amount) => {
 }
 
 /** servis bitti: skoru bağla, tesis ziyareti varsa otoparka çek, yoksa uğurla */
+function trackDaily() {
+  state.dailyServed++
+  if (!state.dailyDone && state.dailyServed >= 15) {
+    state.dailyDone = true
+    state.money += 1000
+    ui.toast('GÜNLÜK GÖREV TAMAM: 15 müşteri — ödül +₺1.000!', 'good', true)
+    audio.achieve()
+  } else if (!state.dailyDone && state.dailyServed % 5 === 0) {
+    ui.toast(`Günlük görev: ${state.dailyServed}/15 müşteri`, '', true)
+  }
+}
+
 function concludeService(car: Car, score: number) {
+  trackDaily()
   score += missingPenalty(car) + vehicleServices(car)
   const visits = facilityVisits(car)
   if (visits.length > 0 && cars.sendToParking(car)) {
@@ -482,7 +495,7 @@ const SAVE_KEY = 'benzinlik-save-v1'
 let lastRemotePush = 0
 
 function savePayload() {
-  return { s: serializeState(state), placedPos, placedRot, placedRects }
+  return { s: serializeState(state), placedPos, placedRot, placedRects, at: Date.now() }
 }
 
 function persist() {
@@ -498,7 +511,10 @@ function persist() {
   }
 }
 
+let loadedSaveAt = 0
+
 function applySaveData(d: Record<string, unknown>) {
+  loadedSaveAt = Number(d.at ?? 0)
   hydrateState(state, (d.s ?? {}) as Record<string, unknown>)
   Object.assign(placedPos, (d.placedPos ?? {}) as Record<string, [number, number]>)
   Object.assign(placedRot, (d.placedRot ?? {}) as Record<string, number>)
@@ -910,6 +926,81 @@ if (!saveLoaded && !isFullMode && loadSave()) {
 }
 if (saveLoaded) rebuildFromState()
 ui.syncAccount(auth.currentEmail())
+
+// ---- Zorunlu giriş kapısı: hesap yoksa oyun oynanmaz ----
+async function doLogin(email: string, pass: string) {
+  await auth.login(email, pass)
+  const remote = await auth.pullSave().catch(() => null)
+  if (!remote) await auth.pushSave(savePayload()).catch(() => {})
+  location.reload()
+}
+async function doRegister(email: string, pass: string) {
+  await auth.register(email, pass)
+  await auth.pushSave(savePayload()).catch(() => {})
+  location.reload()
+}
+
+const gateEl = document.getElementById('authgate') as HTMLDivElement
+if (!isFullMode && !auth.loggedIn()) {
+  gateEl.style.display = 'flex'
+  const gErr = document.getElementById('agerr') as HTMLDivElement
+  const gEmail = document.getElementById('gemail') as HTMLInputElement
+  const gPass = document.getElementById('gpass') as HTMLInputElement
+  const wire = (id: string, fn: (e: string, p: string) => Promise<void>) => {
+    (document.getElementById(id) as HTMLButtonElement).addEventListener('click', async () => {
+      gErr.textContent = ''
+      try { await fn(gEmail.value, gPass.value) } catch (err) { gErr.textContent = (err as Error).message }
+    })
+  }
+  wire('glogin', doLogin)
+  wire('gregister', doRegister)
+  gPass.addEventListener('keydown', e => {
+    if (e.key === 'Enter') (document.getElementById('glogin') as HTMLButtonElement).click()
+  })
+} else {
+  gateEl.remove()
+
+  // ---- Günlük giriş bonusu + seri + görev sıfırlama ----
+  const today = new Date().toISOString().slice(0, 10)
+  if (!isFullMode && state.lastLoginDate !== today) {
+    const yest = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+    state.loginStreak = state.lastLoginDate === yest ? state.loginStreak + 1 : 1
+    state.lastLoginDate = today
+    const bonus = 250 + 250 * Math.min(state.loginStreak, 7)
+    state.money += bonus
+    ui.toast(`Günlük giriş bonusu: +₺${bonus} (seri: ${state.loginStreak} gün)`, 'good', true)
+    audio.achieve()
+    state.dailyDate = today
+    state.dailyServed = 0
+    state.dailyDone = false
+    persist()
+  }
+  if (state.dailyDate !== today) {
+    state.dailyDate = today
+    state.dailyServed = 0
+    state.dailyDone = false
+  }
+
+  // ---- Offline kazanç raporu: sen yokken tesisler çalıştı ----
+  if (!isFullMode && loadedSaveAt > 0) {
+    const offSec = Math.min((Date.now() - loadedSaveAt) / 1000, 7200) // en fazla 2 saatlik birikim
+    if (offSec > 90) {
+      let total = 0
+      const gains: [string, string, number][] = []
+      if (state.hasTruckPark) gains.push(['truckpark', 'Tır parkı', 125 / 45])
+      if (state.hasSelfWash) gains.push(['selfwash', 'Self yıkama', 45 / 35])
+      for (const [id, name, rate] of gains) {
+        const amt = Math.round(rate * offSec)
+        state.addPending(id, amt, name)
+        total += Math.min(amt, 600)
+      }
+      if (total > 0) {
+        ui.toast(`Sen yokken tesislerin çalıştı: kumbaralarda ~₺${total} birikti — topla!`, 'good', true)
+        audio.cash()
+      }
+    }
+  }
+}
 
 ui.onLogin = async (email, pass) => {
   try {
