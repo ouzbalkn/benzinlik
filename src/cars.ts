@@ -408,12 +408,14 @@ export class Tanker {
     g.position.set(ROAD_X, -44, 0)
     scene.add(g)
     this.group = g
+    // tank nereye taşınırsa taşınsın: şeritten tank hizasına gel, en yakın kenara park et
     const parkY = target.y + [0, 2.4, -2.4][queueIdx % 3]
+    const parkX = Math.min(Math.max(target.x + 3.2, 3.4), 4.0)
     this.path = [
       new THREE.Vector3(LANE_NEAR, inY - 3.5, 0),
       new THREE.Vector3(4.2, inY, 0),
-      new THREE.Vector3(4.2, parkY, 0), // önce şerit boyunca hizaya gel
-      new THREE.Vector3(target.x + 3.2, parkY, 0), // sonra düz batıya park
+      new THREE.Vector3(4.2, parkY, 0), // şerit boyunca hizaya
+      new THREE.Vector3(parkX, parkY, 0), // en yakın kenardan boşaltım — içeri dalmaz
     ]
   }
 
