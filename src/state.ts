@@ -16,13 +16,13 @@ export const SPILL_PENALTY_PER_L = 3
 export const WRONG_FUEL_PENALTY = 300
 
 export const TANK_CAPACITY = [800, 1500, 3000, 5000]
-export const MAX_PUMPS = 4
-export const MAX_EV = 4
+export const MAX_PUMPS = 8
+export const MAX_EV = 8
 export const BATTERY_CAP = [0, 100, 250, 600] // kWh
 export const EV_PRICE_PER_KWH = 8
 export const DIESEL_GEN_FUEL_PER_S = 0.25 // jeneratör çalışırken tanktaki mazot tüketimi (L/sn)
 
-const PUMP_COSTS = [0, 5000, 8000, 12000]
+const PUMP_COSTS = [0, 5000, 8000, 12000, 16000, 21000, 26000, 32000]
 const SIGN_COSTS = [1500, 4000, 9000]
 const TANK_COSTS = [3000, 7000, 15000]
 const MARKET_COSTS = [7000, 12000]
@@ -30,7 +30,7 @@ const TOILET_COSTS = [2500, 5000]
 const LAND_COST = 6000
 const GRID_COSTS = [8000, 15000]
 const BATTERY_COSTS = [5000, 9000, 16000]
-const EV_COSTS = [6000, 10000, 14000, 18000]
+const EV_COSTS = [6000, 10000, 14000, 18000, 22000, 27000, 32000, 38000]
 const SOLAR_COST = 9000
 const DIESELGEN_COST = 4000
 const SMR_COST = 40000
@@ -106,7 +106,8 @@ export class GameState {
   /** oyuncunun belirlediği elektrik satış fiyatı (₺/kWh) */
   elecPrice = EV_PRICE_PER_KWH
   battery = 0 // kWh
-  hasSolar = false
+  solarCount = 0
+  get hasSolar() { return this.solarCount > 0 }
   hasDiesel = false
   hasSMR = false
   hasWash = false
@@ -114,9 +115,12 @@ export class GameState {
   hasCoffee = false
   hasRestaurant = false
   hasTruckPark = false
-  hasAirWater = false
-  hasSelfWash = false
-  hasParking = false
+  airWaterCount = 0
+  selfWashCount = 0
+  get hasAirWater() { return this.airWaterCount > 0 }
+  get hasSelfWash() { return this.selfWashCount > 0 }
+  parkingCount = 0
+  get hasParking() { return this.parkingCount > 0 }
   /** istasyon kapalı: yeni müşteri girmez, itibar etkilenmez (bakım molası) */
   closed = false
   /** jeton mantığı: self servis tesislerin üstünde biriken para (tıkla-topla) */
@@ -199,7 +203,7 @@ export class GameState {
   genRate() {
     let r = 0
     if (this.gridLevel >= 1) r += 2 // şebeke: altyapı varsa temel akış
-    if (this.hasSolar) r += 3 * (1 - 0.7 * this.solarDirt)
+    if (this.solarCount > 0) r += 3 * this.solarCount * (1 - 0.7 * this.solarDirt)
     if (this.dieselRunning()) r += 7
     if (this.hasSMR && this.uranium > 0) r += 15
     if (this.gridLevel >= 2) r *= 1.3
@@ -284,7 +288,7 @@ export class GameState {
       this.selfWashTimer -= dt
       if (this.selfWashTimer <= 0) {
         this.selfWashTimer = 25 + Math.random() * 20
-        const m = 30 + Math.floor(Math.random() * 30)
+        const m = (30 + Math.floor(Math.random() * 30)) * this.selfWashCount
         this.addPending('selfwash', m, 'Self yıkama')
       }
     }
@@ -333,8 +337,8 @@ export class GameState {
       + 0.04 * this.marketLevel + 0.02 * this.toiletLevel + 0.02 * this.evChargers
       + (this.hasWash ? 0.03 : 0) + (this.hasOil ? 0.03 : 0)
       + (this.hasCoffee ? 0.02 : 0) + (this.hasRestaurant ? 0.03 : 0)
-      + (this.hasTruckPark ? 0.02 : 0) + (this.hasAirWater ? 0.02 : 0)
-      + (this.hasSelfWash ? 0.02 : 0)
+      + (this.hasTruckPark ? 0.02 : 0) + 0.02 * Math.min(this.airWaterCount, 3)
+      + 0.02 * Math.min(this.selfWashCount, 3)
     return Math.min(0.95, Math.max(0.08, c))
   }
 
@@ -421,10 +425,10 @@ export function getShopItems(s: GameState): ShopRow[] {
   row('tank', 'i-tank', 'Yakıt Tankı', s.tankLevel >= 3 ? `${TANK_CAPACITY[3]}L` : `${TANK_CAPACITY[s.tankLevel + 1]}L`,
     'Depo büyür, daha seyrek sipariş verirsin',
     s.tankLevel >= 3 ? null : TANK_COSTS[s.tankLevel], null)
-  row('airwater', 'i-air', 'Hava-Su Ünitesi', '+₺10-20', 'Lastik havası ve su — ucuz ama müşteri çeker',
-    s.hasAirWater ? null : AIRWATER_COST, null)
-  row('parking', 'i-parking', 'Otopark', '4 araç', 'Çizgili park alanı — müşteriler park edip tesisleri kullanır',
-    s.hasParking ? null : PARKING_COST, null)
+  row('airwater', 'i-air', s.airWaterCount ? `Hava-Su Ünitesi (${s.airWaterCount})` : 'Hava-Su Ünitesi', '+₺10-20',
+    'Lastik havası ve su — ucuz ama müşteri çeker (sınırsız kurulur)', AIRWATER_COST, null)
+  row('parking', 'i-parking', s.parkingCount ? `Otopark (${s.parkingCount})` : 'Otopark', '+4 araç',
+    'Çizgili park alanı — müşteriler park edip tesisleri kullanır (sınırsız kurulur)', PARKING_COST, null)
 
   row('market', 'i-market', s.marketLevel === 0 ? 'Market' : 'Market Sv.2', `+₺${25 * (s.marketLevel + 1)}-${60 * (s.marketLevel + 1)}`,
     'Müşteriler ekstra alışveriş yapar',
@@ -436,8 +440,8 @@ export function getShopItems(s: GameState): ShopRow[] {
     s.hasWash ? null : WASH_COST, null)
   row('oil', 'i-oil', 'Yağ Değişimi', '+₺150-250', "Müşterilerin ~%12'si yağ değiştirtir, güçlü ek gelir",
     s.hasOil ? null : OIL_COST, null)
-  row('selfwash', 'i-selfwash', 'Self Yıkama', '+₺30-60/dk', 'Araçlar kendisi yıkar; köpük ve su otomatik satılır',
-    s.hasSelfWash ? null : SELFWASH_COST, null)
+  row('selfwash', 'i-selfwash', s.selfWashCount ? `Self Yıkama (${s.selfWashCount})` : 'Self Yıkama', '+₺30-60/dk',
+    'Araçlar kendisi yıkar; gelir kurulum sayısıyla artar (sınırsız)', SELFWASH_COST, null)
   row('coffee', 'i-coffee', 'Kahveci', '+₺20-45', 'Yolcular kahve molası verir',
     s.hasCoffee ? null : COFFEE_COST, null)
   row('restaurant', 'i-food', 'Restoran', '+₺80-160', 'Uzun yol müşterisi yemek molası verir',
@@ -460,9 +464,9 @@ export function getShopItems(s: GameState): ShopRow[] {
     s.evChargers >= MAX_EV ? null : EV_COSTS[s.evChargers],
     s.gridLevel < 1 ? 'Elektrik altyapısı gerekli'
       : s.batteryLevel < 1 ? 'Önce batarya deposu kur' : null)
-  row('solar', 'i-solar', 'Güneş Santrali', '+3 kWh/sn',
-    'Bedava üretim — ama kirlenir, düzenli temizlik ister',
-    s.hasSolar ? null : SOLAR_COST,
+  row('solar', 'i-solar', s.solarCount ? `Güneş Santrali (${s.solarCount})` : 'Güneş Santrali', '+3 kWh/sn',
+    'Bedava üretim — ama kirlenir, düzenli temizlik ister (sınırsız kurulur)',
+    SOLAR_COST,
     s.gridLevel < 1 ? 'Elektrik altyapısı gerekli' : null)
   row('dieselgen', 'i-gen', 'Dizel Jeneratör', '+7 kWh/sn',
     'Tanktan mazot yakar — gürültüsü şarjdaki müşterileri kaçırır',
@@ -546,8 +550,8 @@ export function checkAchievements(s: GameState) {
 
 const SAVE_FIELDS = [
   'money', 'reputation', 'stationName', 'pumps', 'signLevel', 'tankLevel', 'marketLevel', 'toiletLevel',
-  'gridLevel', 'evChargers', 'batteryLevel', 'battery', 'elecPrice', 'hasSolar', 'hasDiesel', 'hasSMR',
-  'hasWash', 'hasOil', 'hasCoffee', 'hasRestaurant', 'hasTruckPark', 'hasAirWater', 'hasSelfWash', 'hasParking',
+  'gridLevel', 'evChargers', 'batteryLevel', 'battery', 'elecPrice', 'solarCount', 'hasDiesel', 'hasSMR',
+  'hasWash', 'hasOil', 'hasCoffee', 'hasRestaurant', 'hasTruckPark', 'airWaterCount', 'selfWashCount', 'parkingCount',
   'solarDirt', 'smrWear', 'uranium', 'day', 'dayStartMoney', 'closed',
   'lastLoginDate', 'loginStreak', 'dailyDate', 'dailyServed', 'dailyDone', 'maintCare',
 ] as const
@@ -569,6 +573,11 @@ export function hydrateState(s: GameState, data: Record<string, unknown>) {
   for (const f of SAVE_FIELDS) {
     if (f in data) (s as any)[f] = data[f]
   }
+  // eski boolean kayıtları sayaca çevir
+  if (data.hasSolar && !s.solarCount) s.solarCount = 1
+  if (data.hasParking && !s.parkingCount) s.parkingCount = 1
+  if (data.hasAirWater && !s.airWaterCount) s.airWaterCount = 1
+  if (data.hasSelfWash && !s.selfWashCount) s.selfWashCount = 1
   if (data.tanks && typeof data.tanks === 'object') Object.assign(s.tanks, data.tanks)
   if (data.orders && typeof data.orders === 'object') {
     for (const f of FUELS) {
@@ -620,7 +629,7 @@ export function buyItem(s: GameState, id: string): boolean {
     case 'grid': s.gridLevel++; break
     case 'battery': s.batteryLevel++; break
     case 'evcharger': s.evChargers++; break
-    case 'solar': s.hasSolar = true; break
+    case 'solar': s.solarCount++; break
     case 'dieselgen': s.hasDiesel = true; break
     case 'smr': s.hasSMR = true; s.uranium = 100; break
     case 'wash': s.hasWash = true; break
@@ -628,9 +637,9 @@ export function buyItem(s: GameState, id: string): boolean {
     case 'coffee': s.hasCoffee = true; break
     case 'restaurant': s.hasRestaurant = true; break
     case 'truckpark': s.hasTruckPark = true; break
-    case 'airwater': s.hasAirWater = true; break
-    case 'selfwash': s.hasSelfWash = true; break
-    case 'parking': s.hasParking = true; break
+    case 'airwater': s.airWaterCount++; break
+    case 'selfwash': s.selfWashCount++; break
+    case 'parking': s.parkingCount++; break
     default: return false
   }
   return true

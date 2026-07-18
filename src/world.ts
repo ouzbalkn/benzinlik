@@ -338,6 +338,8 @@ export class World {
     this.makeApron(APRON_OUT_Y)
 
     this.buildOffice()
+    this.buildGate('in')
+    this.buildGate('out')
 
     // ana yakıt tankı (küre) + borular
     this.tankGroup = new THREE.Group()
@@ -703,9 +705,12 @@ export class World {
 
   private ownedMarks = new Map<string, THREE.Group>()
   /** dinamik servis noktaları: pompa/şarj taşınınca araçlar yeni yere gelir */
-  pumpSlots: THREE.Vector3[] = PUMP_SLOTS_POS.map(p => p.clone())
-  evSlots: THREE.Vector3[] = EV_SLOTS_POS.map(p => p.clone())
+  pumpSlots: THREE.Vector3[] = Array.from({ length: 8 }, (_, i) => (PUMP_SLOTS_POS[i] ?? PUMP_SLOTS_POS[3]).clone())
+  evSlots: THREE.Vector3[] = Array.from({ length: 8 }, (_, i) => (EV_SLOTS_POS[i] ?? EV_SLOTS_POS[3]).clone())
   tankAnchor = new THREE.Vector2(TANK_POS.x, TANK_POS.y)
+  /** taşınabilir giriş/çıkış noktaları (yol kenarı şeridi) */
+  gateIn = new THREE.Vector2(4.2, APRON_IN_Y)
+  gateOut = new THREE.Vector2(4.2, APRON_OUT_Y)
   private tankLevelNow = 0
 
   /** beton derzleri: hepsi YOLA DİK (x ekseni boyunca), dünya gridine hizalı —
@@ -842,6 +847,44 @@ export class World {
     if (b) (b.group as THREE.Group).rotation.z = rot * Math.PI / 2
   }
 
+  /** istasyon giriş/çıkış kapısı — oyuncu yerini belirler, trafik buna uyar */
+  buildGate(kind: 'in' | 'out', pos?: THREE.Vector2) {
+    const id = kind === 'in' ? 'gatein' : 'gateout'
+    const v = kind === 'in' ? this.gateIn : this.gateOut
+    if (pos) v.set(4.2, pos.y)
+    this.removeBuildingGroup(id)
+    const g = new THREE.Group()
+    const pad = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.4), lam(0x565e66))
+    pad.position.z = 0.024
+    pad.receiveShadow = true
+    g.add(pad)
+    // yön oku: giriş istasyona (-x), çıkış yola (+x) bakar
+    const dir = kind === 'in' ? -1 : 1
+    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.34), lam(0xe8e4d8))
+    shaft.position.set(-dir * 0.35, 0, 0.03)
+    g.add(shaft)
+    const tri = new THREE.Shape()
+    tri.moveTo(0, -0.5); tri.lineTo(0.62, 0); tri.lineTo(0, 0.5); tri.closePath()
+    const tip = new THREE.Mesh(new THREE.ShapeGeometry(tri), lam(0xe8e4d8))
+    tip.position.set(dir * 0.15, 0, 0.03)
+    if (dir < 0) tip.rotation.z = Math.PI
+    g.add(tip)
+    // mini tabela
+    cyl(0.05, 1.5, 0x8f979e, 0, 1.45, 0.75, 'z', g)
+    const label = canvasPanel(1.3, 0.44, 220, 76, (ctx, cw, ch) => {
+      ctx.fillStyle = kind === 'in' ? '#27a05a' : '#d64545'
+      ctx.beginPath(); ctx.roundRect(0, 0, cw, ch, 14); ctx.fill()
+      ctx.fillStyle = '#fff'; ctx.font = '800 44px -apple-system, sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(kind === 'in' ? 'GİRİŞ' : 'ÇIKIŞ', cw / 2, ch / 2 + 2)
+    })
+    label.position.set(0, 1.45, 1.62)
+    g.add(label)
+    g.position.set(v.x, v.y, 0)
+    this.scene.add(g)
+    this.register(id, kind === 'in' ? 'GİRİŞ' : 'ÇIKIŞ', g, 2.1)
+  }
+
   /** ofis binası — taşınabilir (düzenleme modu) */
   buildOffice(pos?: THREE.Vector2) {
     const at = pos ?? new THREE.Vector2(-5.0, 4.5)
@@ -968,7 +1011,7 @@ export class World {
   }
 
   addPump(index: number, at?: THREE.Vector2) {
-    const base = at ?? new THREE.Vector2(0, PUMP_SLOTS_POS[index].y)
+    const base = at ?? new THREE.Vector2(0, PUMP_SLOTS_POS[Math.min(index, 3)].y)
     this.pumpSlots[index] = new THREE.Vector3(base.x + 1.8, base.y, 0)
     const g = new THREE.Group()
     box(1.7, 3.4, 0.2, 0xc7ccd1, 0, 0, 0.1, g)
@@ -989,7 +1032,7 @@ export class World {
   }
 
   addEvCharger(index: number, at?: THREE.Vector2) {
-    const base = at ?? new THREE.Vector2(0.7, EV_SLOTS_POS[index].y)
+    const base = at ?? new THREE.Vector2(0.7, EV_SLOTS_POS[Math.min(index, 3)].y)
     this.evSlots[index] = new THREE.Vector3(base.x + 1.1, base.y, 0)
     const g = new THREE.Group()
     const pad = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.9), new THREE.MeshLambertMaterial({
@@ -1205,7 +1248,7 @@ export class World {
     this.register('battery', 'BATARYA DEPOSU', g, level * 1.2 + 1.1)
   }
 
-  buildSolar(side: 'north' | 'south', pos?: THREE.Vector2) {
+  buildSolar(side: 'north' | 'south', pos?: THREE.Vector2, regId = 'solar') {
     const g = new THREE.Group()
     for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
       const p = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.1),
@@ -1220,7 +1263,7 @@ export class World {
     const at = pos ?? new THREE.Vector2(-4, side === 'south' ? -20 : 20)
     g.position.set(at.x, at.y, 0)
     this.scene.add(g)
-    this.register('solar', 'GÜNEŞ SANTRALİ', g, 2.4)
+    this.register(regId, 'GÜNEŞ SANTRALİ', g, 2.4)
   }
 
   buildDiesel(pos?: THREE.Vector2) {
@@ -1372,7 +1415,7 @@ export class World {
     this.register('truckpark', 'TIR PARKI', g, 2.6)
   }
 
-  buildSelfWash(pos?: THREE.Vector2) {
+  buildSelfWash(pos?: THREE.Vector2, regId = 'selfwash') {
     const at = pos ?? new THREE.Vector2(-10.5, -6.5)
     const g = new THREE.Group()
     // iki açık bölmeli self yıkama
@@ -1401,10 +1444,10 @@ export class World {
     this.facadeLights(g, [[0.12, -1.5, 1.3], [0.12, 1.5, 1.3]], 0.7, 0.4)
     g.position.set(at.x, at.y, 0)
     this.scene.add(g)
-    this.register('selfwash', 'SELF YIKAMA', g, 3.4)
+    this.register(regId, 'SELF YIKAMA', g, 3.4)
   }
 
-  buildParking(pos?: THREE.Vector2) {
+  buildParking(pos?: THREE.Vector2, regId = 'parking') {
     const at = pos ?? new THREE.Vector2(0.4, -0.2)
     const g = new THREE.Group()
     const pad = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3.1), lam(0x6b7480))
@@ -1422,22 +1465,25 @@ export class World {
     }
     g.position.set(at.x, at.y, 0)
     this.scene.add(g)
-    this.register('parking', 'OTOPARK', g, 2.2)
+    this.register(regId, 'OTOPARK', g, 2.2)
   }
 
   /** yerleştirilen otoparkın dünya koordinatındaki park noktaları */
   getParkingSpots(): THREE.Vector3[] {
-    const b = this.buildings.find(x => x.id === 'parking')
-    if (!b) return []
-    const g = b.group as THREE.Group
-    g.updateMatrixWorld(true)
-    return [0, 1, 2, 3].map(i => {
-      const local = new THREE.Vector3(-1.53 + i * 1.02, -0.1, 0)
-      return local.applyMatrix4(g.matrixWorld)
-    })
+    const spots: THREE.Vector3[] = []
+    for (const b of this.buildings) {
+      if (!(b.id === 'parking' || b.id.startsWith('parking#'))) continue
+      const g = b.group as THREE.Group
+      g.updateMatrixWorld(true)
+      for (let i = 0; i < 4; i++) {
+        const local = new THREE.Vector3(-1.53 + i * 1.02, -0.1, 0)
+        spots.push(local.applyMatrix4(g.matrixWorld))
+      }
+    }
+    return spots
   }
 
-  buildAirWater(pos?: THREE.Vector2) {
+  buildAirWater(pos?: THREE.Vector2, regId = 'airwater') {
     const at = pos ?? new THREE.Vector2(-4.5, 0.2)
     const g = new THREE.Group()
     box(1.0, 1.4, 0.12, 0xc7ccd1, 0, 0, 0.06, g)
@@ -1455,7 +1501,7 @@ export class World {
     g.add(sign)
     g.position.set(at.x, at.y, 0)
     this.scene.add(g)
-    this.register('airwater', 'HAVA-SU ÜNİTESİ', g, 2.3)
+    this.register(regId, 'HAVA-SU ÜNİTESİ', g, 2.3)
   }
 
   buildOil(pos?: THREE.Vector2) {

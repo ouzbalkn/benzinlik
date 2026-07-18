@@ -164,6 +164,8 @@ const cars = new CarManager(world.scene, modelLib, {
   prices: () => state.prices,
   pumpSlot: i => world.pumpSlots[i],
   evSlot: i => world.evSlots[i],
+  gateInY: () => world.gateIn.y,
+  gateOutY: () => world.gateOut.y,
   onCarReady: car => { if (!ui.activeCar) ui.selectCar(car) },
   onCarLost: car => {
     ui.toast('Müşteri beklemekten sıkıldı ve gitti!', 'bad', true)
@@ -516,7 +518,16 @@ ui.onOrderFuel = f => {
 
 /** satın alma sonrası sahnedeki görsel karşılığını kurar */
 function buildVisual(id: string, pos?: THREE.Vector2) {
-  switch (id) {
+  const base = id.split('#')[0]
+  if (base.startsWith('pump-') && pos) {
+    world.addPump(parseInt(base.slice(5)), new THREE.Vector2(pos.x - 0.9, pos.y))
+    return
+  }
+  if (base.startsWith('charger-') && pos) {
+    world.addEvCharger(parseInt(base.slice(8)), new THREE.Vector2(pos.x - 0.5, pos.y))
+    return
+  }
+  switch (base) {
     case 'pump': world.addPump(state.pumps - 1); break
     case 'sign': world.setSign(state.signLevel); break
     case 'tank': world.upgradeTankVisual(state.tankLevel); break
@@ -524,7 +535,7 @@ function buildVisual(id: string, pos?: THREE.Vector2) {
     case 'toilet': world.buildToilet(state.toiletLevel, pos); break
     case 'battery': world.buildBattery(state.batteryLevel, pos); break
     case 'evcharger': world.addEvCharger(state.evChargers - 1); break
-    case 'solar': world.buildSolar(state.landSouth ? 'south' : 'north', pos); break
+    case 'solar': world.buildSolar(state.landSouth ? 'south' : 'north', pos, id); break
     case 'dieselgen': world.buildDiesel(pos); break
     case 'smr': world.buildSMR(state.landNorth ? 'north' : 'south', pos); break
     case 'wash': world.buildWash(pos); break
@@ -532,9 +543,9 @@ function buildVisual(id: string, pos?: THREE.Vector2) {
     case 'coffee': world.buildCoffee(pos); break
     case 'restaurant': world.buildRestaurant(pos); break
     case 'truckpark': world.buildTruckPark(pos); break
-    case 'airwater': world.buildAirWater(pos); break
-    case 'selfwash': world.buildSelfWash(pos); break
-    case 'parking': world.buildParking(pos); break
+    case 'airwater': world.buildAirWater(pos, id); break
+    case 'selfwash': world.buildSelfWash(pos, id); break
+    case 'parking': world.buildParking(pos, id); break
     case 'office': world.buildOffice(pos); break
   }
 }
@@ -604,15 +615,25 @@ function rebuildFromState() {
     if (c === 0 && r === 1) continue
     world.paveParcel(c, r)
   }
-  for (let i = 1; i < state.pumps; i++) world.addPump(i)
-  for (let i = 0; i < state.evChargers; i++) world.addEvCharger(i)
+  const pvv = (id: string) => (placedPos[id] ? new THREE.Vector2(placedPos[id][0], placedPos[id][1]) : undefined)
+  for (let i = 1; i < state.pumps; i++) {
+    const sp = pvv(`pump-${i}`)
+    world.addPump(i, sp ? new THREE.Vector2(sp.x - 0.9, sp.y) : undefined)
+  }
+  for (let i = 0; i < state.evChargers; i++) {
+    const sp = pvv(`charger-${i}`)
+    world.addEvCharger(i, sp ? new THREE.Vector2(sp.x - 0.5, sp.y) : undefined)
+  }
   world.setSign(state.signLevel)
   if (state.tankLevel > 0) world.upgradeTankVisual(state.tankLevel)
   const pv = (id: string) => (placedPos[id] ? new THREE.Vector2(placedPos[id][0], placedPos[id][1]) : undefined)
   if (state.marketLevel > 0) world.buildMarket(state.marketLevel, pv('market'))
   if (state.toiletLevel > 0) world.buildToilet(state.toiletLevel, pv('toilet'))
   if (state.batteryLevel > 0) world.buildBattery(state.batteryLevel, pv('battery'))
-  if (state.hasSolar) world.buildSolar(state.landSouth ? 'south' : 'north', pv('solar'))
+  for (let i = 0; i < state.solarCount; i++) {
+    const iid = i === 0 ? 'solar' : `solar#${i}`
+    world.buildSolar(state.landSouth ? 'south' : 'north', pv(iid), iid)
+  }
   if (state.hasDiesel) world.buildDiesel(pv('dieselgen'))
   if (state.hasSMR) world.buildSMR(state.landNorth ? 'north' : 'south', pv('smr'))
   if (state.hasWash) world.buildWash(pv('wash'))
@@ -620,20 +641,27 @@ function rebuildFromState() {
   if (state.hasCoffee) world.buildCoffee(pv('coffee'))
   if (state.hasRestaurant) world.buildRestaurant(pv('restaurant'))
   if (state.hasTruckPark) world.buildTruckPark(pv('truckpark'))
-  if (state.hasAirWater) world.buildAirWater(pv('airwater'))
-  if (state.hasSelfWash) world.buildSelfWash(pv('selfwash'))
-  if (state.hasParking) world.buildParking(pv('parking'))
+  for (let i = 0; i < state.airWaterCount; i++) {
+    const iid = i === 0 ? 'airwater' : `airwater#${i}`
+    world.buildAirWater(pv(iid), iid)
+  }
+  for (let i = 0; i < state.selfWashCount; i++) {
+    const iid = i === 0 ? 'selfwash' : `selfwash#${i}`
+    world.buildSelfWash(pv(iid), iid)
+  }
+  for (let i = 0; i < state.parkingCount; i++) {
+    const iid = i === 0 ? 'parking' : `parking#${i}`
+    world.buildParking(pv(iid), iid)
+  }
   if (placedPos.office) {
     world.removeBuildingGroup('office')
     world.buildOffice(pv('office'))
   }
-  for (let i = 0; i < state.pumps; i++) {
-    const s = placedPos[`pump-${i}`]
-    if (s) world.movePump(i, new THREE.Vector2(s[0] - 0.9, s[1]))
-  }
-  for (let i = 0; i < state.evChargers; i++) {
-    const s = placedPos[`charger-${i}`]
-    if (s) world.moveCharger(i, new THREE.Vector2(s[0] - 0.5, s[1]))
+  if (placedPos.gatein) world.buildGate('in', pv('gatein'))
+  if (placedPos.gateout) world.buildGate('out', pv('gateout'))
+  {
+    const s0 = placedPos['pump-0']
+    if (s0) world.movePump(0, new THREE.Vector2(s0[0] - 0.9, s0[1]))
   }
   if (placedPos.tank) world.moveTank(new THREE.Vector2(placedPos.tank[0], placedPos.tank[1]))
   for (const [id, rot] of Object.entries(placedRot)) world.rotateBuilding(id, rot)
@@ -853,9 +881,11 @@ function makeGhost(w: number, d: number): THREE.Mesh {
 }
 
 function footprintOf(id: string, move = false): { w: number; d: number; grass?: boolean } | null {
+  id = id.split('#')[0]
   if (id.startsWith('pump-')) return { w: 4.4, d: 4.0 }
   if (id.startsWith('charger-')) return { w: 4.0, d: 2.6 }
   if (id === 'tank') return { w: 2.0, d: 2.0 }
+  if (id === 'gatein' || id === 'gateout') return { w: 2.6, d: 3.4, grass: true }
   return id in PLACEABLE ? PLACEABLE[id](move) : null
 }
 
@@ -917,6 +947,8 @@ function applyDynamicMove(id: string, cx: number, cy: number) {
     world.moveCharger(n, new THREE.Vector2(cx - 0.5, cy))
   }
   else if (id === 'tank') world.moveTank(new THREE.Vector2(cx, cy))
+  else if (id === 'gatein') world.buildGate('in', new THREE.Vector2(cx, cy))
+  else if (id === 'gateout') world.buildGate('out', new THREE.Vector2(cx, cy))
   else {
     world.removeBuildingGroup(id)
     buildVisual(id, new THREE.Vector2(cx, cy))
@@ -929,15 +961,18 @@ function confirmPlacement() {
     applyDynamicMove(p.id, p.cx, p.cy)
     ui.toast('Taşındı!', 'good')
   } else {
-    if (!buyItem(state, p.id)) {
+    const purchaseId = p.id.startsWith('pump-') ? 'pump'
+      : p.id.startsWith('charger-') ? 'evcharger'
+      : p.id.split('#')[0]
+    if (!buyItem(state, purchaseId)) {
       ui.toast('💸 Para yetmiyor!', 'bad')
       cancelPlacement()
       return
     }
     buildVisual(p.id, new THREE.Vector2(p.cx, p.cy))
-    buyToast(p.id)
+    buyToast(p.id.split('#')[0].replace(/^pump-\d+$/, 'pump').replace(/^charger-\d+$/, 'evcharger'))
   }
-  if (!p.id.startsWith('pump-') && !p.id.startsWith('charger-') && p.id !== 'tank')
+  if (!p.id.startsWith('pump-') && !p.id.startsWith('charger-') && p.id !== 'tank' && p.id !== 'gatein' && p.id !== 'gateout')
     world.rotateBuilding(p.id, p.rot)
   placedPos[p.id] = [p.cx, p.cy]
   placedRot[p.id] = p.rot
@@ -973,7 +1008,7 @@ function confirmZone() {
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') cancelPlacement()
   if ((e.key === 'r' || e.key === 'R') && placing) {
-    if (placing.id.startsWith('pump-') || placing.id.startsWith('charger-') || placing.id === 'tank') {
+    if (placing.id.startsWith('pump-') || placing.id.startsWith('charger-') || placing.id === 'tank' || placing.id === 'gatein' || placing.id === 'gateout') {
       ui.toast('Bu ünitenin yönü sabittir (araç yanaşması) — sadece yerini seçebilirsin.', '')
       return
     }
@@ -983,16 +1018,39 @@ window.addEventListener('keydown', e => {
 })
 renderer.domElement.addEventListener('contextmenu', e => { e.preventDefault(); cancelPlacement() })
 
+const COUNTABLE: Record<string, () => number> = {
+  parking: () => state.parkingCount,
+  solar: () => state.solarCount,
+  selfwash: () => state.selfWashCount,
+  airwater: () => state.airWaterCount,
+}
+
 ui.onBuy = id => {
   audio.click()
   if (id === 'land' || id === 'pave') {
     startZoneMode(id)
     return
   }
+  const item0 = getShopItems(state).find(r => r.id === id)
+  if (id in COUNTABLE) {
+    if (!item0 || item0.status !== 'buy' || state.money < (item0.cost ?? Infinity)) return
+    const n = COUNTABLE[id]()
+    startPlacement(n === 0 ? id : `${id}#${n}`)
+    return
+  }
+  if (id === 'pump' && state.pumps >= 4) {
+    if (!item0 || item0.status !== 'buy' || state.money < (item0.cost ?? Infinity)) return
+    startPlacement(`pump-${state.pumps}`)
+    return
+  }
+  if (id === 'evcharger' && state.evChargers >= 4) {
+    if (!item0 || item0.status !== 'buy' || state.money < (item0.cost ?? Infinity)) return
+    startPlacement(`charger-${state.evChargers}`)
+    return
+  }
   const needsPlacement = id in PLACEABLE && !(id === 'battery' && state.batteryLevel > 0)
   if (needsPlacement) {
-    const item = getShopItems(state).find(r => r.id === id)
-    if (!item || item.status !== 'buy' || state.money < (item.cost ?? Infinity)) return
+    if (!item0 || item0.status !== 'buy' || state.money < (item0.cost ?? Infinity)) return
     startPlacement(id)
     return
   }
@@ -1258,6 +1316,7 @@ ui.onPriceChange = (f, delta) => {
 // ---- Bina bilgi kartları ----
 
 function buildingCard(id: string): BuildingCard | null {
+  id = id.split('#')[0]
   const rate = state.genRate()
   if (id.startsWith('pump-')) {
     const i = Number(id.slice(5))
@@ -1313,6 +1372,18 @@ function buildingCard(id: string): BuildingCard | null {
         ],
       }
     }
+    case 'gatein':
+      return {
+        icon: 'i-move', name: 'Giriş Kapısı',
+        desc: 'Müşteriler ve tankerler istasyona buradan girer. Taşı butonuyla yol kenarında istediğin yere al — trafik akışı kendini uyarlar.',
+        stats: [['Konum', `y ${Math.round(world.gateIn.y)}`], ['Kural', 'Çıkışla arası en az 5 birim']],
+      }
+    case 'gateout':
+      return {
+        icon: 'i-move', name: 'Çıkış Kapısı',
+        desc: 'Araçlar istasyondan buradan çıkıp yola karışır. Taşı butonuyla yerini belirle.',
+        stats: [['Konum', `y ${Math.round(world.gateOut.y)}`], ['Kural', 'Girişle arası en az 5 birim']],
+      }
     case 'tank':
       return {
         icon: 'i-tank', name: 'Yakıt Tankı',
@@ -1513,6 +1584,17 @@ window.addEventListener('pointermove', e => {
     const pt = new THREE.Vector3()
     if (raycaster.ray.intersectPlane(groundPlane, pt)) {
       if (placing) {
+        if (placing.id === 'gatein' || placing.id === 'gateout') {
+          // kapılar yol kenarı şeridine kilitli — sadece y seçilir
+          placing.cx = 4.2
+          placing.cy = Math.max(-24, Math.min(24, Math.round(pt.y)))
+          placing.root.position.set(placing.cx, placing.cy, 0)
+          const otherY = placing.id === 'gatein' ? world.gateOut.y : world.gateIn.y
+          placing.valid = Math.abs(placing.cy - otherY) >= 5
+          placing.planeMat.color.setHex(placing.valid ? 0x37c97e : 0xec5b5b)
+          placing.planeMat.opacity = placing.valid ? 0.22 : 0.34
+          return
+        }
         placing.cx = Math.round(pt.x)
         placing.cy = Math.round(pt.y)
         placing.root.position.set(placing.cx, placing.cy, 0)
@@ -1786,7 +1868,11 @@ function frame() {
     state.tanks[c.nozzle] -= amount
     if (c.nozzle !== c.demandType && c.filled > 1.5) {
       wrongFuel(c)
-    } else if (c.filledValue >= c.targetAmount) {
+    } else if (c.fullMode ? c.filled >= c.hiddenNeedL : c.filledValue >= c.targetAmount) {
+      if (c.fullMode) {
+        c.demandAmount = Math.round(c.filledValue * 100) / 100
+        c.demandLiters = c.filled
+      }
       finishSale(c)
     }
   }

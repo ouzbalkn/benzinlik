@@ -84,8 +84,11 @@ function sanitizeSave(save) {
   s.money = clamp(s.money, 0, 2_000_000, 5000)
   s.reputation = clamp(s.reputation, 0, 5, 3)
   s.day = clamp(s.day, 1, 100000, 1)
-  s.pumps = clamp(s.pumps, 1, 4, 1)
-  s.evChargers = clamp(s.evChargers, 0, 4, 0)
+  s.pumps = clamp(s.pumps, 1, 8, 1)
+  for (const k of ['parkingCount', 'solarCount', 'selfWashCount', 'airWaterCount']) {
+    if (k in s) s[k] = clamp(s[k], 0, 30, 0)
+  }
+  s.evChargers = clamp(s.evChargers, 0, 8, 0)
   s.signLevel = clamp(s.signLevel, 0, 3, 0)
   s.tankLevel = clamp(s.tankLevel, 0, 3, 0)
   s.marketLevel = clamp(s.marketLevel, 0, 2, 0)

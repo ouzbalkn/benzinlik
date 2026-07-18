@@ -107,7 +107,12 @@ function textSprite(text: string, accent: string): THREE.Sprite {
   ctx.roundRect(8, 8, 496, 176, 40)
   ctx.fill(); ctx.stroke()
   ctx.fillStyle = '#1c2530'
-  ctx.font = '800 76px -apple-system, sans-serif'
+  let fs = 76
+  ctx.font = `800 ${fs}px -apple-system, sans-serif`
+  while (fs > 34 && ctx.measureText(text).width > 448) {
+    fs -= 4
+    ctx.font = `800 ${fs}px -apple-system, sans-serif`
+  }
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
   ctx.fillText(text, 256, 100)
   const tex = new THREE.CanvasTexture(c)
@@ -367,7 +372,9 @@ export class Tanker {
   done = false
   unloading = false
 
-  constructor(scene: THREE.Scene, lib: ModelLib | null, fuel: FuelType = 'benzin', queueIdx = 0, target = new THREE.Vector3(TANK_POS.x, TANK_POS.y, 0)) {
+  private outY: number
+  constructor(scene: THREE.Scene, lib: ModelLib | null, fuel: FuelType = 'benzin', queueIdx = 0, target = new THREE.Vector3(TANK_POS.x, TANK_POS.y, 0), inY = APRON_IN_Y, outY = APRON_OUT_Y) {
+    this.outY = outY
     const tint = fuel === 'benzin' ? 0xa8d6b8 : fuel === 'dizel' ? 0xe3c49b : 0xaccdf0
     let g: THREE.Group
     if (lib?.tankerBase) {
@@ -403,8 +410,8 @@ export class Tanker {
     this.group = g
     const parkY = target.y + [0, 2.4, -2.4][queueIdx % 3]
     this.path = [
-      new THREE.Vector3(LANE_NEAR, APRON_IN_Y - 3.5, 0),
-      new THREE.Vector3(4.2, APRON_IN_Y, 0),
+      new THREE.Vector3(LANE_NEAR, inY - 3.5, 0),
+      new THREE.Vector3(4.2, inY, 0),
       new THREE.Vector3(target.x + 3.2, parkY, 0),
     ]
   }
@@ -444,8 +451,8 @@ export class Tanker {
         this.leaving = true
         this.path = [
           new THREE.Vector3(3.6, -4.5, 0),
-          new THREE.Vector3(4.2, APRON_OUT_Y, 0),
-          new THREE.Vector3(LANE_NEAR, APRON_OUT_Y + 4, 0),
+          new THREE.Vector3(4.2, this.outY, 0),
+          new THREE.Vector3(LANE_NEAR, this.outY + 4, 0),
           new THREE.Vector3(LANE_NEAR, 44, 0),
         ]
       }
@@ -478,6 +485,9 @@ export interface CarManagerOpts {
   /** dinamik servis noktaları — pompa/şarj taşınınca değişir */
   pumpSlot: (i: number) => THREE.Vector3
   evSlot: (i: number) => THREE.Vector3
+  /** taşınabilir giriş/çıkış kapı y koordinatları */
+  gateInY: () => number
+  gateOutY: () => number
   onCarReady: (car: Car) => void
   onCarLost: (car: Car) => void
 }
@@ -486,8 +496,8 @@ export class CarManager {
   cars: Car[] = []
   private nearTimer = 1
   private farTimer = 2.5
-  private pumpOcc: (Car | null)[] = [null, null, null, null]
-  private evOcc: (Car | null)[] = [null, null, null, null]
+  private pumpOcc: (Car | null)[] = Array(8).fill(null)
+  private evOcc: (Car | null)[] = Array(8).fill(null)
   private parkOcc: (Car | null)[] = []
   private waitOcc: (Car | null)[] = [null, null, null, null]
 
@@ -643,7 +653,7 @@ export class CarManager {
 
   /** rampadan girip hedef noktaya giden yol */
   private entryPath(p: THREE.Vector3): THREE.Vector3[] {
-    const apronY = p.y < -10 ? APRON_SOUTH_Y : APRON_IN_Y
+    const apronY = this.opts.gateInY()
     return [
       new THREE.Vector3(LANE_NEAR, apronY - 3.5, 0),
       new THREE.Vector3(4.2, apronY, 0),
@@ -687,8 +697,8 @@ export class CarManager {
       car.waitIndex = wi
       car.phase = 'driving'
       car.setPath([
-        new THREE.Vector3(LANE_NEAR, APRON_IN_Y - 3.5, 0),
-        new THREE.Vector3(4.2, APRON_IN_Y, 0),
+        new THREE.Vector3(LANE_NEAR, this.opts.gateInY() - 3.5, 0),
+        new THREE.Vector3(4.2, this.opts.gateInY(), 0),
         WAIT_SPOTS[wi],
       ], () => {
         car.phase = 'waiting'
@@ -780,21 +790,22 @@ export class CarManager {
     car.filling = false
     car.hideBubble()
     car.hideBars()
+    const outY = this.opts.gateOutY()
     if (fromPark) {
       car.setPath([
         new THREE.Vector3(car.group.position.x, PARK_LANE_Y, 0),
         new THREE.Vector3(3.0, PARK_LANE_Y, 0),
-        new THREE.Vector3(4.2, APRON_OUT_Y, 0),
-        new THREE.Vector3(LANE_NEAR, APRON_OUT_Y + 4, 0),
+        new THREE.Vector3(4.2, outY, 0),
+        new THREE.Vector3(LANE_NEAR, outY + 4, 0),
         new THREE.Vector3(LANE_NEAR, 44, 0),
       ])
       return
     }
     const y = car.group.position.y
     car.setPath([
-      new THREE.Vector3(3.4, Math.min(y + 3, APRON_OUT_Y - 1.8), 0),
-      new THREE.Vector3(4.2, APRON_OUT_Y, 0),
-      new THREE.Vector3(LANE_NEAR, APRON_OUT_Y + 4, 0),
+      new THREE.Vector3(3.4, Math.min(y + 3, outY - 1.8), 0),
+      new THREE.Vector3(4.2, outY, 0),
+      new THREE.Vector3(LANE_NEAR, outY + 4, 0),
       new THREE.Vector3(LANE_NEAR, 44, 0),
     ])
   }
