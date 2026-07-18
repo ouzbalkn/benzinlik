@@ -466,24 +466,6 @@ const PLACEABLE: Record<string, (forMove: boolean) => Footprint> = {
   parking: () => ({ w: 4.6, d: 3.2 }),
 }
 
-/** taşıma bedeli: kuruluş maliyetinin ~%70'i */
-const MOVE_COST: Record<string, () => number> = {
-  market: () => Math.round((state.marketLevel >= 2 ? 12000 : 7000) * 0.7),
-  toilet: () => Math.round((state.toiletLevel >= 2 ? 5000 : 2500) * 0.7),
-  battery: () => Math.round([0, 5000, 9000, 16000][state.batteryLevel] * 0.7),
-  solar: () => 6300,
-  dieselgen: () => 2800,
-  smr: () => 28000,
-  wash: () => 5600,
-  oil: () => 8400,
-  coffee: () => 4900,
-  restaurant: () => 10500,
-  truckpark: () => 8400,
-  airwater: () => 1050,
-  selfwash: () => 4200,
-  parking: () => 840,
-}
-
 interface Rect { cx: number; cy: number; w: number; d: number }
 const placedRects: (Rect & { id: string })[] = []
 const placedPos: Record<string, [number, number]> = {}
@@ -800,12 +782,9 @@ function cancelPlacement() {
 function confirmPlacement() {
   const p = placing!
   if (p.move) {
-    const cost = MOVE_COST[p.id]?.() ?? 0
-    if (state.money < cost) { ui.toast('💸 Taşıma için para yetmiyor!', 'bad'); cancelPlacement(); return }
-    state.money -= cost
     world.removeBuildingGroup(p.id)
     buildVisual(p.id, new THREE.Vector2(p.cx, p.cy))
-    ui.toast(`📦 Taşındı (-₺${cost.toLocaleString('tr-TR')})`, 'good')
+    ui.toast('Taşındı!', 'good')
   } else {
     if (!buyItem(state, p.id)) {
       ui.toast('💸 Para yetmiyor!', 'bad')
@@ -876,7 +855,7 @@ ui.onBuy = id => {
 }
 
 ui.onMove = id => {
-  if (!(id in PLACEABLE) || !MOVE_COST[id]) return
+  if (!(id in PLACEABLE)) return
   startPlacement(id, true)
 }
 
@@ -1284,8 +1263,8 @@ function refreshBuildingCard() {
   if (!selectedBuilding) return
   const card = buildingCard(selectedBuilding)
   if (!card) return
-  if (MOVE_COST[selectedBuilding]) {
-    card.move = { label: `📦 Taşı — ₺${MOVE_COST[selectedBuilding]().toLocaleString('tr-TR')}`, id: selectedBuilding }
+  if (selectedBuilding in PLACEABLE) {
+    card.move = { label: 'Taşı (ücretsiz)', id: selectedBuilding }
   }
   ui.showBuildingCard(card)
 }
