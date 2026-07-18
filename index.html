@@ -66,6 +66,10 @@
     .btn.good { background: var(--green); border-color: var(--green-dark); color: #fff; }
     .btn.warn { background: var(--orange); border-color: var(--orange-dark); color: #fff; }
     .btn.danger { background: var(--red); border-color: var(--red-dark); color: #fff; }
+    #shopdot { display: none; position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px;
+               background: var(--red); color: #fff; border-radius: 10px; font-size: 11px; font-weight: 800;
+               align-items: center; justify-content: center; padding: 0 5px;
+               border: 2px solid var(--paper); }
 
     /* ---------- Servis paneli ---------- */
     #panel { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
@@ -221,6 +225,15 @@
     .agsub { font-size: 12.5px; color: var(--muted); font-weight: 700; line-height: 1.4; }
     #agerr { font-size: 12px; color: var(--red-dark); font-weight: 700; min-height: 15px; text-align: center; }
 
+    /* ---------- Tanker takip paneli (sağ alt) ---------- */
+    #tankerpanel { position: fixed; right: 14px; bottom: 14px; z-index: 10; display: none;
+                   flex-direction: column; gap: 6px; align-items: stretch; }
+    .trow { background: var(--paper); border: 1.5px solid var(--edge); border-bottom-width: 3px;
+            border-radius: var(--r-md); padding: 7px 12px; display: flex; align-items: center; gap: 8px;
+            font-size: 12.5px; font-weight: 800; box-shadow: var(--shadow); min-width: 150px;
+            font-variant-numeric: tabular-nums; }
+    .trow .ic { color: var(--orange); }
+
     /* ---------- Toast ---------- */
     #toasts { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); z-index: 40;
               display: flex; flex-direction: column; gap: 7px; align-items: center; pointer-events: none; }
@@ -284,19 +297,18 @@
   </svg>
 
   <div class="hud">
-    <div class="chip"><span class="cl">GÜN</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="day">1</span></span></div>
-    <div class="chip"><span class="cl">KASA</span><span class="cv"><svg class="ic"><use href="#i-coin"/></svg> <span id="money">0</span> ₺</span></div>
+    <div class="chip" style="min-width:62px"><span class="cl">GÜN</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="day">1</span></span></div>
+    <div class="chip" style="min-width:152px"><span class="cl">KASA</span><span class="cv"><svg class="ic"><use href="#i-coin"/></svg> <span id="money">0</span> ₺</span></div>
     <div class="chip"><span class="cl">BENZİN</span><span class="cv"><svg class="ic" style="color:var(--green)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-benzin" style="background:var(--green)"></div></div> <span id="lvl-benzin">0</span></span></div>
     <div class="chip"><span class="cl">DİZEL</span><span class="cv"><svg class="ic" style="color:var(--orange)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-dizel" style="background:var(--orange)"></div></div> <span id="lvl-dizel">0</span></span></div>
     <div class="chip"><span class="cl">LPG</span><span class="cv"><svg class="ic" style="color:var(--blue)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-lpg" style="background:var(--blue)"></div></div> <span id="lvl-lpg">0</span></span></div>
     <div class="chip" id="battchip"><span class="cl">BATARYA</span><span class="cv"><svg class="ic"><use href="#i-batt"/></svg> <div class="bar"><div id="battfill"></div></div> <span id="battkwh">0</span></span></div>
-    <div class="chip"><span class="cl">İTİBAR</span><span class="cv"><svg class="ic"><use href="#i-star"/></svg> <span id="rep">3.0</span></span></div>
-    <div class="chip"><span class="cl">GÜNLÜK GÖREV</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="quest">0/15</span></span></div>
-    <div class="chip" id="tankerchip" style="display:none"><span class="cl">TANKER TAKİP</span><span class="cv"><svg class="ic" style="color:var(--orange)"><use href="#i-truck"/></svg> <span id="tankertext">—</span></span></div>
+    <div class="chip" style="min-width:74px"><span class="cl">İTİBAR</span><span class="cv"><svg class="ic"><use href="#i-star"/></svg> <span id="rep">3.0</span></span></div>
+    <div class="chip" style="min-width:104px"><span class="cl">GÜNLÜK GÖREV</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="quest">0/15</span></span></div>
     <div class="spacer"></div>
-    <button id="closebtn" class="btn"><svg class="ic"><use href="#i-power"/></svg><span id="closelabel">Açık</span></button>
-    <button id="orderbtn" class="btn warn"><svg class="ic"><use href="#i-truck"/></svg><span id="orderlabel">Yakıt Siparişi</span></button>
-    <button id="shopbtn" class="btn primary"><svg class="ic"><use href="#i-build"/></svg><span id="shoplabel">İnşaat</span></button>
+    <button id="closebtn" class="btn" style="width:118px; justify-content:center"><svg class="ic"><use href="#i-power"/></svg><span id="closelabel">Açık</span></button>
+    <button id="orderbtn" class="btn warn" style="width:158px; justify-content:center"><svg class="ic"><use href="#i-truck"/></svg><span id="orderlabel">Yakıt Siparişi</span></button>
+    <button id="shopbtn" class="btn primary" style="width:118px; justify-content:center; position:relative"><svg class="ic"><use href="#i-build"/></svg><span id="shoplabel">İnşaat</span><span id="shopdot"></span></button>
     <button id="accbtn" class="btn" title="Hesabım"><svg class="ic" style="margin:0"><use href="#i-user"/></svg></button>
     <button id="setbtn" class="btn" title="Ayarlar"><svg class="ic" style="margin:0"><use href="#i-gear"/></svg></button>
   </div>
@@ -475,6 +487,8 @@
       </div>
     </div>
   </div>
+
+  <div id="tankerpanel" style="display:none"></div>
 
   <div id="toasts"></div>
 

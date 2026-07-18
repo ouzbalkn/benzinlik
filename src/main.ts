@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { World, PUMP_SLOTS_POS, EV_SLOTS_POS } from './world'
+import { World, PUMP_SLOTS_POS, EV_SLOTS_POS, TANK_POS } from './world'
 import { Car, CarManager, Tanker } from './cars'
 import { UI, BuildingCard } from './ui'
 import {
@@ -128,12 +128,19 @@ ui.tankerStatus = () => {
   const parts: string[] = []
   for (const f of FUELS) {
     const active = tankers.find(x => x.fuel === f)
-    if (active) parts.push(`${FUEL_LABEL[f]}: ${active.t.unloading ? 'boşaltıyor' : 'sahada, yanaşıyor'}`)
-    else if (state.orders[f].pending) parts.push(`${FUEL_LABEL[f]}: ${Math.ceil(state.orders[f].eta)} sn`)
+    if (active) {
+      if (active.t.unloading) parts.push(`${FUEL_LABEL[f]} · boşaltıyor`)
+      else {
+        const d = active.t.group.position.distanceTo(new THREE.Vector3(TANK_POS.x, TANK_POS.y, 0))
+        parts.push(`${FUEL_LABEL[f]} · ${Math.max(1, Math.round(d))}m`)
+      }
+    } else if (state.orders[f].pending) {
+      parts.push(`${FUEL_LABEL[f]} · ${Math.ceil(state.orders[f].eta)}s`)
+    }
   }
   return parts
 }
-const tankers: { t: Tanker; fuel: FuelType }[] = []
+const tankers: { t: Tanker; fuel: FuelType; slot: number }[] = []
 let exploding = false
 let selectedBuilding: string | null = null
 let cardRefreshT = 0
@@ -1562,23 +1569,32 @@ function frame() {
   for (const f of FUELS) {
     if (state.orders[f].arrived) {
       state.orders[f].arrived = false
-      tankers.push({ t: new Tanker(world.scene, modelLib, f, tankers.length), fuel: f })
+      const used = new Set(tankers.map(x => x.slot))
+      let slot = 0
+      while (used.has(slot)) slot++
+      tankers.push({ t: new Tanker(world.scene, modelLib, f, slot), fuel: f, slot })
     }
   }
-  const tankerBlocked = (pos: THREE.Vector3, dir: THREE.Vector3) => {
-    for (const c of cars.cars) {
-      if (c.phase === 'gone') continue
-      const rel = new THREE.Vector3().subVectors(c.group.position, pos)
+  const blockedFor = (self: Tanker) => (pos: THREE.Vector3, dir: THREE.Vector3) => {
+    const check = (p: THREE.Vector3, maxF: number, maxL: number) => {
+      const rel = new THREE.Vector3().subVectors(p, pos)
       rel.z = 0
       const forward = rel.dot(dir)
-      if (forward < 0.5 || forward > 3.8) continue
-      if (rel.addScaledVector(dir, -forward).length() < 1.6) return true
+      if (forward < 0.5 || forward > maxF) return false
+      return rel.addScaledVector(dir, -forward).length() < maxL
+    }
+    for (const c of cars.cars) {
+      if (c.phase !== 'gone' && check(c.group.position, 3.8, 1.6)) return true
+    }
+    // tankerler birbirinin içinden GEÇMEZ: öndeki tanker varsa kuyrukta bekle
+    for (const x of tankers) {
+      if (x.t !== self && check(x.t.group.position, 5.2, 2.0)) return true
     }
     return false
   }
   for (let i = tankers.length - 1; i >= 0; i--) {
     const { t, fuel } = tankers[i]
-    if (t.update(dt, tankerBlocked)) {
+    if (t.update(dt, blockedFor(t))) {
       state.deliverFuel(fuel)
       ui.toast(`${FUEL_LABEL[fuel]} tankı dolduruldu!`, 'good')
     }

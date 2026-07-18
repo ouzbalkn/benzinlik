@@ -430,9 +430,12 @@ export class UI {
     this.rep.textContent = state.reputation.toFixed(1)
     el<HTMLSpanElement>('quest').textContent = state.dailyDone ? 'TAMAM' : `${state.dailyServed}/15`
     const ts = this.tankerStatus()
-    const tchip = el<HTMLDivElement>('tankerchip')
-    tchip.style.display = ts.length ? 'flex' : 'none'
-    if (ts.length) el<HTMLSpanElement>('tankertext').textContent = ts.join(' · ')
+    const tpanel = el<HTMLDivElement>('tankerpanel')
+    tpanel.style.display = ts.length ? 'flex' : 'none'
+    if (ts.length) {
+      tpanel.innerHTML = ts.map(t =>
+        `<div class="trow">${icon('i-truck')} <span>${t}</span></div>`).join('')
+    }
     el<HTMLDivElement>('acc-email').textContent = this.accountEmail ?? '—'
     el<HTMLDivElement>('acc-streak').textContent = `Giriş serisi: ${state.loginStreak} gün · Oyun günü: ${state.day}`
     el<HTMLDivElement>('acc-ach').textContent = `Başarımlar: ${state.achievements.size}/8 · Görev: ${state.dailyDone ? 'tamamlandı' : state.dailyServed + '/15'}`
@@ -443,7 +446,7 @@ export class UI {
       const lvl = state.tanks[f]
       if (lvl < state.tankCapacity * 0.15) anyLow = true
       el<HTMLDivElement>(`fill-${f}`).style.width = `${(lvl / state.tankCapacity) * 100}%`
-      el<HTMLSpanElement>(`lvl-${f}`).textContent = `${Math.round(lvl)}`
+      el<HTMLSpanElement>(`lvl-${f}`).textContent = `${Math.round(lvl)}L`
       const o = state.orders[f]
       const need = state.orderNeed(f)
       const btn = el<HTMLButtonElement>(`fbtn-${f}`)
@@ -477,11 +480,13 @@ export class UI {
     this.orderBtn.classList.toggle('warn', !anyLow)
 
     const maintCount = getMaintenanceItems(state).filter(m => !m.disabled).length
-    this.shopLabel.textContent = 'İnşaat'
     this.shopBtn.classList.toggle('danger', maintCount > 0)
     this.shopBtn.classList.toggle('primary', maintCount === 0)
     this.maintBadge.style.display = maintCount > 0 ? 'inline-block' : 'none'
     this.maintBadge.textContent = `${maintCount}`
+    const dot = el<HTMLSpanElement>('shopdot')
+    dot.style.display = maintCount > 0 ? 'flex' : 'none'
+    dot.textContent = `${maintCount}`
 
     if (this.shopOpen) {
       this.shopRenderT -= dt
