@@ -761,20 +761,14 @@ export class World {
 
   private ownedMarks = new Map<string, THREE.Group>()
 
-  /** beton derzleri: hepsi aynı yönde (↗), dünya gridine hizalı — arsalar arası bütün görünür */
+  /** beton derzleri: hepsi YOLA DİK (x ekseni boyunca), dünya gridine hizalı —
+   *  komşu betonlarda çizgi aynı hizada devam eder, bütünlük bozulmaz */
   private paveJoints(x0: number, x1: number, y0: number, y1: number) {
     const SPACING = 5
-    const kMin = Math.ceil((x0 - y1) / SPACING) * SPACING
-    const kMax = Math.floor((x1 - y0) / SPACING) * SPACING
-    for (let k = kMin; k <= kMax; k += SPACING) {
-      const xa = Math.max(x0, y0 + k)
-      const xb = Math.min(x1, y1 + k)
-      if (xb - xa < 0.8) continue
-      const len = (xb - xa) * Math.SQRT2 - 0.4
-      const mx = (xa + xb) / 2
-      const joint = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.06), lam(0x7e858d))
-      joint.position.set(mx, mx - k, 0.02)
-      joint.rotation.z = Math.PI / 4
+    const yStart = Math.ceil((y0 + 0.5) / SPACING) * SPACING
+    for (let y = yStart; y <= y1 - 0.5; y += SPACING) {
+      const joint = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.4, 0.06), lam(0x7e858d))
+      joint.position.set((x0 + x1) / 2, y, 0.02)
       this.scene.add(joint)
     }
   }
