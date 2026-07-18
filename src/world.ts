@@ -642,15 +642,15 @@ export class World {
       if (!(ch as THREE.Sprite).isSprite) this.tankGroup.remove(ch)
     }
     this.tankGroup.position.set(this.tankAnchor.x, this.tankAnchor.y, 0)
-    const spots: [number, number][] = [[0, 0], [0, 1.8], [1.8, 0], [1.8, 1.8]]
-    const R = 0.82 + level * 0.07
+    const spots: [number, number][] = [[0, 0], [0, 0.9], [0.9, 0], [0.9, 0.9]]
+    const R = 0.4 + level * 0.04
     const bandColor = [0xd64545, 0x2f6fed, 0xe8862e, 0x39424e][level]
     for (let i = 0; i <= level; i++) this.addSphereTank(spots[i][0], spots[i][1], R, bandColor)
   }
 
   /** tank kümesini taşı (merkezden çapaya çevirir) */
   moveTank(center: THREE.Vector2) {
-    this.tankAnchor.set(center.x - 0.9, center.y - 0.9)
+    this.tankAnchor.set(center.x - 0.45, center.y - 0.45)
     this.buildTankCluster(this.tankLevelNow)
   }
 

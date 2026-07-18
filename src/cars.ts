@@ -4,7 +4,7 @@ import { ROAD_X, LANE_NEAR, LANE_FAR, PUMP_SLOTS_POS, EV_SLOTS_POS, TANK_POS, AP
 
 const CAR_COLORS = [0x5b8def, 0xe25b5b, 0xf2c14e, 0x62b56b, 0x9a7bd0, 0xe8e6e1, 0x4a5560, 0x53b8a7, 0xef8b4e]
 const CAR_SPEED = 7
-const DEMAND_AMOUNTS = [250, 350, 450, 550, 700, 850, 1000]
+const DEMAND_AMOUNTS = [100, 150, 200, 250, 300, 400]
 const DECISION_Y = -26 // yakın şeritte istasyona girme kararının verildiği nokta
 
 export type CarPhase = 'transit' | 'driving' | 'waiting' | 'atPump' | 'toPark' | 'parked' | 'leaving' | 'gone'
@@ -227,6 +227,8 @@ export class Car {
     this.demandLiters = this.demandAmount / this.prices[this.demandType]
     this.demandKwh = 20 + Math.floor(Math.random() * 9) * 5 // 20..60
     this.wantsFull = kind === 'fuel' && Math.random() < 0.10
+    // FULLE isteyenler dolu depo boşaltır: ₺500-1000 arası (kusuratlı) yakıt alır
+    if (this.wantsFull) this.hiddenNeedL = (500 + Math.random() * 500) / this.prices[this.demandType]
     this.maxPatience = kind === 'ev' ? 45 : 75
     this.patience = this.maxPatience
     this.wantsMarket = Math.random() < 0.35
