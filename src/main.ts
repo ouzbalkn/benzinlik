@@ -19,7 +19,8 @@ THREE.Object3D.DEFAULT_UP.set(0, 0, 1) // z yukarı
 
 // ---- ÖNCE GİRİŞ: hesap yoksa oyun motoru hiç başlamaz ----
 {
-  const gated = !new URLSearchParams(location.search).has('full') && !localStorage.getItem('benzinlik-token')
+  // misafir modu YOK: vitrin (?full) dahil her şey giriş ister
+  const gated = !localStorage.getItem('benzinlik-token')
   if (gated) {
     const gate = document.getElementById('authgate') as HTMLDivElement
     gate.style.display = 'flex'

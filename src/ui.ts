@@ -350,7 +350,7 @@ export class UI {
     this.accountEmail = email
     el<HTMLDivElement>('accstatus').textContent = email
       ? `Giriş yapıldı: ${email} — kaydın buluta senkronlanıyor.`
-      : 'Giriş yapılmadı — misafir modundasın (kayıt sadece bu tarayıcıda).'
+      : 'Giriş gerekli — oturum kapandı, sayfayı yenile.'
     el<HTMLInputElement>('accemail').style.display = email ? 'none' : 'block'
     el<HTMLInputElement>('accpass').style.display = email ? 'none' : 'block'
     el<HTMLButtonElement>('loginbtn').style.display = email ? 'none' : 'flex'
@@ -415,7 +415,7 @@ export class UI {
     this.day.textContent = `${state.day}`
     this.rep.textContent = state.reputation.toFixed(1)
     el<HTMLSpanElement>('quest').textContent = state.dailyDone ? 'TAMAM' : `${state.dailyServed}/15`
-    el<HTMLDivElement>('acc-email').textContent = this.accountEmail ?? 'Misafir'
+    el<HTMLDivElement>('acc-email').textContent = this.accountEmail ?? '—'
     el<HTMLDivElement>('acc-streak').textContent = `Giriş serisi: ${state.loginStreak} gün · Oyun günü: ${state.day}`
     el<HTMLDivElement>('acc-ach').textContent = `Başarımlar: ${state.achievements.size}/8 · Görev: ${state.dailyDone ? 'tamamlandı' : state.dailyServed + '/15'}`
 
