@@ -163,6 +163,8 @@ export class Car {
   waitIndex = -1
   /** öndeki araca çok yaklaştıysa bu karede bekle (üst üste binme yok) */
   hold = false
+  holdTime = 0
+  private barsOn = false
   wrongFuelHandled = false
   beingServed = false
 
@@ -241,14 +243,20 @@ export class Car {
     this.onArrive = onArrive ?? null
   }
 
-  showBars() {
-    this.patienceBg.visible = true
-    this.patienceFill.visible = true
-  }
+  showBars() { this.barsOn = true }
 
   hideBars() {
+    this.barsOn = false
     this.patienceBg.visible = false
     this.patienceFill.visible = false
+  }
+
+  /** gidilen yönün birim vektörü (durunca null) */
+  headingDir(): THREE.Vector3 | null {
+    if (this.path.length === 0) return null
+    const d = new THREE.Vector3().subVectors(this.path[0], this.group.position)
+    d.z = 0
+    return d.lengthSq() < 1e-6 ? null : d.normalize()
   }
 
   showBubble() {
@@ -306,6 +314,11 @@ export class Car {
       this.patience -= dt
     }
     const p = this.patienceFrac
+    // bar yalnızca sabır gerçekten işlerken görünsün — balonun altında başıboş çizgi olmasın
+    const showBar = this.barsOn && !this.beingServed && p <= 0.97
+      && (this.phase === 'waiting' || this.phase === 'atPump')
+    this.patienceBg.visible = showBar
+    this.patienceFill.visible = showBar
     this.patienceFill.scale.x = 1.5 * p
     this.patienceFill.position.x = -(1.5 * (1 - p)) / 2
     const color = p > 0.5 ? 0x4dc36b : p > 0.25 ? 0xe0b13e : 0xd64545
@@ -467,18 +480,35 @@ export class CarManager {
       } else this.farTimer = 0.5
     }
 
-    // şeritte takip mesafesi: öndeki yakınsa dur, içinden geçme
+    // çarpışma önleme: HİÇBİR araç bir diğerinin içinden geçmez.
+    // Önümdeki koridorda (2.8 birim ileri, 1.25 yana) araç varsa dururum.
+    const blockers = new Map<Car, Car>()
     for (const c of this.cars) c.hold = false
-    for (const lane of ['near', 'far'] as const) {
-      const dirUp = lane === 'near'
-      const group = this.cars.filter(c => c.phase === 'transit' && c.lane === lane)
-      for (const c of group) {
-        const y = c.group.position.y
-        for (const o of group) {
-          if (o === c) continue
-          const gap = dirUp ? o.group.position.y - y : y - o.group.position.y
-          if (gap > 0 && gap < 3.1) { c.hold = true; break }
-        }
+    for (const c of this.cars) {
+      if (c.phase === 'gone' || c.phase === 'atPump' || c.phase === 'parked' || c.phase === 'waiting') continue
+      const dir = c.headingDir()
+      if (!dir) continue
+      for (const o of this.cars) {
+        if (o === c || o.phase === 'gone') continue
+        const rel = new THREE.Vector3().subVectors(o.group.position, c.group.position)
+        rel.z = 0
+        const forward = rel.dot(dir)
+        if (forward < 0.4 || forward > 2.8) continue
+        const lateral = rel.addScaledVector(dir, -forward).length()
+        if (lateral < 1.25) { c.hold = true; blockers.set(c, o); break }
+      }
+    }
+    // karşılıklı kilitlenme: ikisi de birbirini bekliyorsa biri yol alır
+    for (const [c, o] of blockers) {
+      if (blockers.get(o) === c && c.hold && o.hold) o.hold = false
+    }
+    // uzun süre sıkışan araç kendini kurtarır (gridlock sigortası)
+    for (const c of this.cars) {
+      if (c.hold) {
+        c.holdTime += dt
+        if (c.holdTime > 6) { c.hold = false; c.holdTime = 4 }
+      } else {
+        c.holdTime = 0
       }
     }
 
