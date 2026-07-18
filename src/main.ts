@@ -476,16 +476,13 @@ const DISCHARGE_RATE = [0, 15, 25, 40]
 
 ui.onChargeEV = car => {
   if (car.phase !== 'atPump' || car.charging) return
-  if (state.battery < 1) {
-    ui.toast('Bataryada elektrik yok — şebekeden/santralden dolmasını bekle.', 'bad')
-    return
-  }
   if (state.dieselRunning() && Math.random() < 0.35) {
     car.demandKwh = Math.ceil(car.demandKwh / 2)
     ui.toast('🔊 Jeneratör gürültüsünden rahatsız — yarısı kadar şarj isteyecek!', 'bad')
   }
   car.charging = true
   car.beingServed = true
+  if (state.battery < 1) ui.toast('Depo şu an boş — üretim geldikçe şarj yavaş akacak.', '')
 }
 
 /** kademeli EV şarjı: depo → araç akışı */

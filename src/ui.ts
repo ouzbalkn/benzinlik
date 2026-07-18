@@ -314,7 +314,7 @@ export class UI {
       this.demand.innerHTML = `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
         `<span class="fpill" style="background:#1fa8bc">ELEKTRİK</span><span class="damt">${car.demandKwh} kWh</span>`
       const have = this.batteryKwh()
-      this.chargeBtn.disabled = car.charging || have < 1
+      this.chargeBtn.disabled = car.charging
       this.setText(this.chargeBtn, car.charging
         ? `ŞARJ OLUYOR — ${Math.floor(car.chargedKwh)}/${car.demandKwh} kWh`
         : `ŞARJ BAŞLAT (${car.demandKwh} kWh)`)
