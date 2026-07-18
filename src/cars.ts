@@ -210,7 +210,7 @@ export class Car {
     this.maxPatience = kind === 'ev' ? 45 : 75
     this.patience = this.maxPatience
     this.wantsMarket = Math.random() < 0.35
-    this.wantsToilet = Math.random() < 0.3
+    this.wantsToilet = Math.random() < 0.12
     this.wantsWash = kind === 'fuel' && Math.random() < 0.25
     this.wantsOil = kind === 'fuel' && Math.random() < 0.12
     this.wantsCoffee = Math.random() < 0.3
