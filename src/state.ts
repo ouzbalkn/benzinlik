@@ -198,9 +198,10 @@ export class GameState {
   /** anlık üretim gücü kWh/sn (kir, yakıt vs. dahil) */
   genRate() {
     let r = 0
-    if (this.hasSolar) r += 2 * (1 - 0.7 * this.solarDirt)
-    if (this.dieselRunning()) r += 1.5
-    if (this.hasSMR && this.uranium > 0) r += 8
+    if (this.gridLevel >= 1) r += 2 // şebeke: altyapı varsa temel akış
+    if (this.hasSolar) r += 3 * (1 - 0.7 * this.solarDirt)
+    if (this.dieselRunning()) r += 7
+    if (this.hasSMR && this.uranium > 0) r += 15
     if (this.gridLevel >= 2) r *= 1.3
     return r
   }
@@ -459,15 +460,15 @@ export function getShopItems(s: GameState): ShopRow[] {
     s.evChargers >= MAX_EV ? null : EV_COSTS[s.evChargers],
     s.gridLevel < 1 ? 'Elektrik altyapısı gerekli'
       : s.batteryLevel < 1 ? 'Önce batarya deposu kur' : null)
-  row('solar', 'i-solar', 'Güneş Santrali', '+2 kWh/sn',
+  row('solar', 'i-solar', 'Güneş Santrali', '+3 kWh/sn',
     'Bedava üretim — ama kirlenir, düzenli temizlik ister',
     s.hasSolar ? null : SOLAR_COST,
     s.gridLevel < 1 ? 'Elektrik altyapısı gerekli' : null)
-  row('dieselgen', 'i-gen', 'Dizel Jeneratör', '+1.5 kWh/sn',
+  row('dieselgen', 'i-gen', 'Dizel Jeneratör', '+7 kWh/sn',
     'Tanktan mazot yakar — gürültüsü şarjdaki müşterileri kaçırır',
     s.hasDiesel ? null : DIESELGEN_COST,
     s.gridLevel < 1 ? 'Elektrik altyapısı gerekli' : null)
-  row('smr', 'i-reactor', 'Modüler Reaktör', '+8 kWh/sn',
+  row('smr', 'i-reactor', 'Modüler Reaktör', '+15 kWh/sn',
     'Dev üretim — bakımsız kalırsa PATLAR, her şey sıfırlanır',
     s.hasSMR ? null : SMR_COST,
     s.gridLevel < 2 ? 'Altyapı Sv.2 gerekli' : null)

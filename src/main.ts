@@ -473,9 +473,7 @@ ui.onChargeEV = car => {
   if (car.phase !== 'atPump') return
   const avail = Math.floor(state.battery)
   if (avail < 5) {
-    ui.toast(state.genRate() > 0
-      ? `Bataryada elektrik yok (${avail} kWh) — santral üretiyor, birikmesini bekle.`
-      : 'Batarya boş: elektrik üreten santralin yok! Güneş paneli, jeneratör veya reaktör kur.', 'bad')
+    ui.toast(`Bataryada elektrik yok (${avail} kWh) — şebekeden doluyor, biraz bekle. Santral kurarsan çok daha hızlı dolar.`, 'bad')
     return
   }
   let kwh = Math.min(car.demandKwh, avail)
@@ -1306,7 +1304,7 @@ function buildingCard(id: string): BuildingCard | null {
         desc: 'Santrallerin ürettiği elektriği biriktirir. Elektrikli araçlar buradan anında şarj alır.',
         stats: [
           ['Dolu', `${Math.floor(state.battery)} / ${state.batteryCapacity} kWh`],
-          ['Üretim', state.genRate() > 0 ? `+${state.genRate().toFixed(1)} kWh/sn` : 'SANTRAL YOK', state.genRate() > 0 ? 'good' : 'bad'],
+          ['Üretim', `+${state.genRate().toFixed(1)} kWh/sn (şebeke dahil)`, 'good'],
           ['Üretim', `+${rate.toFixed(1)} kWh/sn`, rate > 0 ? 'good' : ''],
           ['Seviye', `${state.batteryLevel}/3`],
         ],
@@ -1330,7 +1328,7 @@ function buildingCard(id: string): BuildingCard | null {
         ],
       }
     case 'solar': {
-      const net = 2 * (1 - 0.7 * state.solarDirt) * (state.gridLevel >= 2 ? 1.3 : 1)
+      const net = 3 * (1 - 0.7 * state.solarDirt) * (state.gridLevel >= 2 ? 1.3 : 1)
       return {
         icon: 'i-solar', name: 'Güneş Santrali',
         desc: 'Bedava elektrik üretir ama paneller kirlendikçe verim düşer. Ara sıra temizlik yaptır.',
@@ -1346,7 +1344,7 @@ function buildingCard(id: string): BuildingCard | null {
         icon: 'i-gen', name: 'Dizel Jeneratör',
         desc: 'Tanktan mazot yakarak elektrik üretir. Çalışırken gürültüsü şarjdaki müşterileri rahatsız eder.',
         stats: [
-          ['Üretim', `+1.5 kWh/sn`],
+          ['Üretim', `+7 kWh/sn`],
           ['Yakıt tüketimi', '0.25 L/sn'],
           ['Durum', state.dieselRunning() ? 'ÇALIŞIYOR 🔊' : 'Beklemede', state.dieselRunning() ? 'bad' : 'good'],
         ],
@@ -1416,7 +1414,7 @@ function buildingCard(id: string): BuildingCard | null {
         icon: 'i-reactor', name: 'Modüler Reaktör',
         desc: 'En güçlü enerji kaynağı. Uranyumla çalışır, yıprandıkça patlama riski artar — bakımı ASLA aksatma.',
         stats: [
-          ['Üretim', producing ? `+${(8 * (state.gridLevel >= 2 ? 1.3 : 1)).toFixed(1)} kWh/sn` : 'DURDU (uranyum yok)', producing ? 'good' : 'bad'],
+          ['Üretim', producing ? `+${(15 * (state.gridLevel >= 2 ? 1.3 : 1)).toFixed(1)} kWh/sn` : 'DURDU (uranyum yok)', producing ? 'good' : 'bad'],
           ['Uranyum', state.uraniumPending ? `Yolda (${Math.ceil(state.uraniumEta)}sn)` : `%${Math.round(state.uranium)}`, state.uranium <= 20 && !state.uraniumPending ? 'bad' : ''],
           ['Yıpranma', `%${Math.round(state.smrWear * 100)}`, state.smrWear > 0.5 ? 'bad' : ''],
           ['Patlama riski', risk, state.smrWear > 0.7 ? 'bad' : state.smrWear > 0.5 ? '' : 'good'],
