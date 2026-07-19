@@ -118,6 +118,28 @@ function sanitizeSave(save) {
   return save
 }
 
+// ---- hız limitleri (bellek içi; tek konteyner için yeterli) ----
+const buckets = new Map() // key -> { n, resetAt }
+function rateLimit(key, max, windowMs) {
+  const now = Date.now()
+  const b = buckets.get(key)
+  if (!b || now > b.resetAt) {
+    buckets.set(key, { n: 1, resetAt: now + windowMs })
+    return true
+  }
+  b.n++
+  return b.n <= max
+}
+setInterval(() => {
+  const now = Date.now()
+  for (const [k, b] of buckets) if (now > b.resetAt) buckets.delete(k)
+}, 60_000).unref()
+
+function clientIp(req) {
+  const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+  return xf || req.socket.remoteAddress || '?'
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json',
@@ -133,7 +155,9 @@ async function handleApi(req, res, url) {
     return email
   }
   try {
+    if (url === '/api/healthz') return json(res, 200, { ok: true })
     if (url === '/api/register' && req.method === 'POST') {
+      if (!rateLimit('reg:' + clientIp(req), 6, 3600_000)) return json(res, 429, { error: 'Çok sık kayıt denemesi — biraz sonra tekrar dene.' })
       const { email, password } = await readBody(req)
       const e = String(email || '').trim().toLowerCase()
       if (!/^\S+@\S+\.\S+$/.test(e)) return json(res, 400, { error: 'Geçerli bir e-posta gir.' })
@@ -144,6 +168,7 @@ async function handleApi(req, res, url) {
       return json(res, 200, { token: sign(e), email: e })
     }
     if (url === '/api/login' && req.method === 'POST') {
+      if (!rateLimit('login:' + clientIp(req), 30, 3600_000)) return json(res, 429, { error: 'Çok fazla deneme — biraz sonra tekrar dene.' })
       const { email, password } = await readBody(req)
       const e = String(email || '').trim().toLowerCase()
       const r = await pool.query('SELECT pass FROM benzinlik_player WHERE email=$1', [e])
@@ -159,9 +184,22 @@ async function handleApi(req, res, url) {
     }
     if (url === '/api/save' && req.method === 'POST') {
       const email = auth(); if (!email) return
+      if (!rateLimit('save:' + email, 1, 3_000)) return json(res, 429, { error: 'rate' })
       const { save } = await readBody(req)
       const clean = sanitizeSave(save)
       if (clean === undefined) return json(res, 400, { error: 'Geçersiz kayıt verisi.' })
+      // makullük: para, geçen süreye göre imkânsız hızda artamaz (hile freni)
+      if (clean && clean.s) {
+        const prev = await pool.query('SELECT save, updated_at FROM benzinlik_player WHERE email=$1', [email])
+        const prevSave = prev.rows[0]?.save
+        if (prevSave && prevSave.s && typeof prevSave.s.money === 'number') {
+          const elapsed = Math.max(1, (Date.now() - new Date(prev.rows[0].updated_at).getTime()) / 1000)
+          const allowance = 50_000 + elapsed * 600
+          if (clean.s.money > prevSave.s.money + allowance) {
+            clean.s.money = Math.round(prevSave.s.money + allowance)
+          }
+        }
+      }
       await pool.query('UPDATE benzinlik_player SET save=$2, updated_at=now() WHERE email=$1', [email, clean])
       return json(res, 200, { ok: true })
     }
