@@ -730,9 +730,9 @@ export class CarManager {
       }
       if (c.hold) {
         c.holdTime += dt
-        if (c.holdTime > 4) {
+        if (c.holdTime > 2.5) {
           c.holdTime = 0
-          c.overrideT = 1.4
+          c.overrideT = 1.6
           c.hold = false
         }
       } else {
@@ -785,7 +785,7 @@ export class CarManager {
         else car.hardStuckT = Math.max(0, car.hardStuckT - dt * 3)
         // giriş rampasında/manevrada tıkanan araç yolu tıkamasın: 7 sn'de çekilir; genelde 12 sn
         const atEntry = car.phase === 'driving' && car.group.position.x > 2.5 && car.slotIndex < 0
-        if (car.hardStuckT > (atEntry ? 7 : 12)) this.evaporate(car)
+        if (car.hardStuckT > (atEntry ? 3.5 : 9)) this.evaporate(car)
       } else {
         car.hardStuckT = 0
       }
@@ -901,6 +901,13 @@ export class CarManager {
   private tryEnter(car: Car) {
     if (this.opts.entryChance() <= 0) return // istasyon kapalı: kimse girmez
     if (car.wantsTruckPark && car.truckSlot < 0 && this.sendTruckToPark(car)) return
+    // giriş rampasında (kapı ile pompalar arası) zaten manevra yapan araç varsa BEKLE —
+    // aynı anda tek araç girer, apron'da yığılma/kilitlenme olmaz (oyuncu şikayeti fixi)
+    const gy = this.opts.gateInY()
+    const rampBusy = this.cars.some(o => o !== car && o.phase === 'driving'
+      && o.group.position.x > 2.6 && o.group.position.x < 5.2
+      && Math.abs(o.group.position.y - gy) < 6)
+    if (rampBusy) return // bu araç yola devam eder, sonraki karar noktasında tekrar dener
     if (car.kind === 'ev') {
       let slot = -1
       for (let i = 0; i < this.opts.evCount(); i++) {

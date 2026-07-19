@@ -50,6 +50,7 @@ THREE.Object3D.DEFAULT_UP.set(0, 0, 1) // z yukarı
         }
       })
     }
+    fetch('/api/visit', { method: 'POST' }).catch(() => {}) // ziyaret say (istatistik)
     // canlı oyuncu sayacı — kayıt öncesi sosyal kanıt (FOMO)
     fetch('/api/stats').then(r => r.json()).then(st => {
       const box = document.getElementById('livecount') as HTMLDivElement

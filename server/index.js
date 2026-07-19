@@ -42,6 +42,13 @@ async function initDb() {
   await pool.query(`ALTER TABLE benzinlik_player ADD COLUMN IF NOT EXISTS sessions int NOT NULL DEFAULT 0`)
   await pool.query(`ALTER TABLE benzinlik_player ADD COLUMN IF NOT EXISTS banned_at timestamptz`)
   await pool.query(`ALTER TABLE benzinlik_player ADD COLUMN IF NOT EXISTS ban_reason text`)
+  await pool.query(`ALTER TABLE benzinlik_feedback ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'open'`)
+  await pool.query(`ALTER TABLE benzinlik_feedback ADD COLUMN IF NOT EXISTS resolved_note text`)
+  await pool.query(`ALTER TABLE benzinlik_feedback ADD COLUMN IF NOT EXISTS resolved_at timestamptz`)
+  await pool.query(`CREATE TABLE IF NOT EXISTS benzinlik_stat_hourly (
+    hour timestamptz PRIMARY KEY, visits int NOT NULL DEFAULT 0,
+    signups int NOT NULL DEFAULT 0, logins int NOT NULL DEFAULT 0
+  )`)
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS benzinlik_player_email_lower ON benzinlik_player (lower(email))`)
   console.log('DB hazır (benzinlik_player + benzinlik_feedback).')
 }
@@ -135,6 +142,14 @@ function sanitizeSave(save) {
 // ---- hız limitleri (bellek içi; tek konteyner için yeterli) ----
 const buckets = new Map() // key -> { n, resetAt }
 let statsCache = { data: null, at: 0 }
+async function bumpStat(kind) {
+  if (!pool) return
+  try {
+    await pool.query(
+      `INSERT INTO benzinlik_stat_hourly(hour, ${kind}) VALUES (date_trunc('hour', now()), 1)
+       ON CONFLICT (hour) DO UPDATE SET ${kind} = benzinlik_stat_hourly.${kind} + 1`)
+  } catch { /* stat kaydı kritik değil */ }
+}
 function rateLimit(key, max, windowMs) {
   const now = Date.now()
   const b = buckets.get(key)
@@ -182,6 +197,10 @@ async function handleApi(req, res, url) {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=20' })
       return res.end(JSON.stringify(statsCache.data))
     }
+    if (url === '/api/visit' && req.method === 'POST') {
+      if (rateLimit('visit:' + clientIp(req), 1, 30_000)) bumpStat('visits')
+      return json(res, 200, { ok: true })
+    }
     if (url === '/api/config') {
       return json(res, 200, { adsClient: process.env.ADSENSE_PUB || null })
     }
@@ -201,6 +220,7 @@ async function handleApi(req, res, url) {
         throw err
       })
       if (!ins.rowCount) return json(res, 409, { error: 'Bu e-posta zaten kayıtlı — giriş yap.' })
+      bumpStat('signups')
       return json(res, 200, { token: sign(e), email: e })
     }
     if (url === '/api/login' && req.method === 'POST') {
@@ -213,6 +233,7 @@ async function handleApi(req, res, url) {
       }
       if (r.rows[0].banned_at) return json(res, 403, { error: 'Bu hesap askıya alınmış.' })
       await pool.query('UPDATE benzinlik_player SET sessions=sessions+1, last_seen_at=now() WHERE email=$1', [e])
+      bumpStat('logins')
       return json(res, 200, { token: sign(e), email: e })
     }
     if (url === '/api/feedback' && req.method === 'POST') {
@@ -374,23 +395,49 @@ async function handleVs(req, res, url) {
     }
     if (url === '/vs/v1/feedback' && req.method === 'GET') {
       const limit = Math.min(200, Math.max(10, Number(u.searchParams.get('limit')) || 100))
-      const rows = await pool.query('SELECT id, email, message, game, created_at FROM benzinlik_feedback ORDER BY id DESC LIMIT $1', [limit])
+      const rows = await pool.query('SELECT id, email, message, game, created_at, status, resolved_note FROM benzinlik_feedback ORDER BY (status=\'open\') DESC, id DESC LIMIT $1', [limit])
       return json(res, 200, { data: rows.rows.map(r => ({
         id: String(r.id),
         email: r.email,
         message: r.message,
+        durum: r.status === 'resolved' ? 'Çözüldü' : r.status === 'wontfix' ? 'Kapatıldı' : 'Açık',
+        cozumNotu: r.resolved_note || '',
         gun: r.game?.day ?? null,
         kasa: r.game?.money ?? null,
         cihaz: (r.game?.ua || '').slice(0, 60),
         createdAt: r.created_at,
       })), nextCursor: null })
     }
+    const fbM = url.match(/^\/vs\/v1\/feedback\/(\d+)\/(resolve|reopen|wontfix)$/)
+    if (fbM && req.method === 'POST') {
+      const id = Number(fbM[1]); const act = fbM[2]
+      const body = await readBody(req).catch(() => ({}))
+      if (act === 'resolve') {
+        await pool.query('UPDATE benzinlik_feedback SET status=\'resolved\', resolved_note=$2, resolved_at=now() WHERE id=$1', [id, String(body.note || 'Çözüldü').slice(0, 300)])
+      } else if (act === 'wontfix') {
+        await pool.query('UPDATE benzinlik_feedback SET status=\'wontfix\', resolved_note=$2, resolved_at=now() WHERE id=$1', [id, String(body.note || '').slice(0, 300)])
+      } else {
+        await pool.query('UPDATE benzinlik_feedback SET status=\'open\', resolved_note=NULL, resolved_at=NULL WHERE id=$1', [id])
+      }
+      const r = await pool.query('SELECT id, email, message, game, created_at, status, resolved_note FROM benzinlik_feedback WHERE id=$1', [id])
+      const x = r.rows[0]
+      return json(res, 200, { data: { id: String(x.id), durum: x.status === 'resolved' ? 'Çözüldü' : x.status === 'wontfix' ? 'Kapatıldı' : 'Açık', cozumNotu: x.resolved_note || '' } })
+    }
+    if (url === '/vs/v1/stats-hourly' && req.method === 'GET') {
+      const rows = await pool.query(`
+        SELECT to_char(hour, 'HH24:00') AS label, visits, signups, logins
+        FROM benzinlik_stat_hourly WHERE hour > now() - interval '24 hours' ORDER BY hour`)
+      return json(res, 200, { data: rows.rows })
+    }
     if (url === '/vs/v1/engagement' && req.method === 'GET') {
       const agg = await pool.query(`
         SELECT
           coalesce(avg(sessions), 0)::float AS spu,
           count(*)::int AS total,
+          count(*) FILTER (WHERE last_seen_at > now() - interval '5 min')::int AS active5m,
+          count(*) FILTER (WHERE last_seen_at > now() - interval '1 hour')::int AS active1h,
           count(*) FILTER (WHERE last_seen_at > now() - interval '1 day')::int AS active1d,
+          count(*) FILTER (WHERE created_at > now() - interval '1 day')::int AS new1d,
           count(*) FILTER (WHERE last_seen_at > created_at + interval '1 day')::int AS d1,
           count(*) FILTER (WHERE last_seen_at > created_at + interval '7 day')::int AS d7,
           count(*) FILTER (WHERE last_seen_at > created_at + interval '30 day')::int AS d30,
@@ -406,14 +453,27 @@ async function handleVs(req, res, url) {
           count(*) FILTER (WHERE (save->'s'->>'hasSMR')::boolean)::int AS nuclear_stations,
           coalesce(round(avg((save->'s'->>'reputation')::numeric), 2), 0)::float AS avg_rep
         FROM benzinlik_player`)
-      const fb = await pool.query('SELECT count(*)::int AS n FROM benzinlik_feedback')
-      const a = agg.rows[0]
+      const fb = await pool.query("SELECT count(*)::int AS n, count(*) FILTER (WHERE status='open')::int AS acik FROM benzinlik_feedback")
+      const vis = await pool.query(`SELECT
+        coalesce(sum(visits),0)::int AS v24, coalesce(sum(signups),0)::int AS s24, coalesce(sum(logins),0)::int AS l24
+        FROM benzinlik_stat_hourly WHERE hour > now() - interval '24 hours'`)
+      const a = agg.rows[0]; const v = vis.rows[0]
+      const conv = v.v24 > 0 ? Math.round((v.s24 / v.v24) * 100) : 0
       const pct = n => (a.total > 0 ? Math.round((n / a.total) * 100) : 0)
       return json(res, 200, {
         window: '30d',
         sessionsPerUser: Math.round(a.spu * 10) / 10,
         retention: { d1: pct(a.d1), d7: pct(a.d7), d30: pct(a.d30) },
         topEvents: [
+          { event: 'AKTIF · su an (5dk)', count: Number(a.active5m) },
+          { event: 'AKTIF · son 1 saat', count: Number(a.active1h) },
+          { event: 'AKTIF · son 24 saat', count: Number(a.active1d) },
+          { event: 'ZIYARET · son 24 saat', count: Number(v.v24) },
+          { event: 'KAYIT · son 24 saat', count: Number(v.s24) },
+          { event: 'GIRIS · son 24 saat', count: Number(v.l24) },
+          { event: 'DONUSUM · ziyaret→kayit %', count: conv },
+          { event: 'YENI OYUNCU · son 24 saat', count: Number(a.new1d) },
+          { event: 'ACIK sorun bildirimi', count: fb.rows[0].acik },
           { event: 'toplam_musteri_servisi', count: Number(a.served) },
           { event: 'satilan_benzin_L', count: Number(a.l_benzin) },
           { event: 'satilan_dizel_L', count: Number(a.l_dizel) },
