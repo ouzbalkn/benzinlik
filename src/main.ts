@@ -719,6 +719,25 @@ function showCloudBlockOverlay() {
   ;(document.getElementById('cloudblock-retry') as HTMLButtonElement).addEventListener('click', () => location.reload())
 }
 
+function showBanOverlay(reason: string) {
+  if (document.getElementById('banblock')) return
+  cloudBlocked = true // tüm kayıt + oyun + WS reconnect durur
+  try { liveWs?.close() } catch {}
+  localStorage.removeItem('benzinlik-token')
+  const o = document.createElement('div')
+  o.id = 'banblock'
+  o.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#1a0d0df5;display:flex;'
+    + 'align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(5px)'
+  o.innerHTML = `<div style="max-width:420px;text-align:center;color:#f4e9e9;font-family:system-ui,sans-serif">
+    <div style="font-size:46px;margin-bottom:8px">🚫</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:10px">${t('Hesabın askıya alındı')}</div>
+    <div style="font-size:14px;line-height:1.5;color:#d8b8b8;margin-bottom:20px">${reason || t('Kurallar ihlal edildi.')}</div>
+    <button id="banblock-ok" style="padding:12px 22px;font-size:15px;font-weight:700;border:0;border-radius:12px;background:#c9433b;color:#fff;cursor:pointer">${t('Tamam')}</button>
+  </div>`
+  document.body.appendChild(o)
+  ;(document.getElementById('banblock-ok') as HTMLButtonElement).addEventListener('click', () => location.reload())
+}
+
 function persist() {
   if (isFullMode || isPromoMode || cloudBlocked) return
   // tek gerçek kaynak SQL: yerel kopya tutulmaz, eski veri asla hortlamaz
@@ -1359,6 +1378,8 @@ function connectLive() {
     } else if (m.type === 'reload') {
       ui.toast(t('Güncelleme uygulanıyor…'), '', true)
       setTimeout(() => location.reload(), 800)
+    } else if (m.type === 'ban') {
+      showBanOverlay(String(m.reason || ''))
     }
   }
   const reconnect = () => {

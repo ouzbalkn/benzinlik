@@ -337,6 +337,7 @@ const EN: Record<string, string> = {
   'Temiz camlara bahşiş: +₺{0}': 'Clean-windows tip: +₺{0}',
   'Tekrar hoş geldin patron! Dönüş hediyesi: +₺1.000 🎁': 'Welcome back, boss! Comeback gift: +₺1,000 🎁',
   'Bakiye güncellendi': 'Balance updated', 'Kayıt güncellendi ✓': 'Save updated ✓', 'Güncelleme uygulanıyor…': 'Applying update…',
+  'Hesabın askıya alındı': 'Your account is suspended', 'Kurallar ihlal edildi.': 'Terms of Service violation.', 'Tamam': 'OK',
   'Yerleştir': 'Place', 'Buraya yerleştirilemez — kırmızıysa başka yere taşı.': 'Cannot place here — if red, move elsewhere.',
   '👋 Hoş geldin patron! İlk müşterin geldi — panelde ne istediğine bak ve <b>o renkteki tabancayı</b> seç.': '👋 Welcome, boss! Your first customer is here — check the panel and pick <b>the matching-color nozzle</b>.',
   'Tabanca seçildi ✓ Şimdi <b>tutar gir</b> ya da <b>FULLE</b> bas, sonra <b>BAŞLAT</b>.': 'Nozzle selected ✓ Now <b>enter an amount</b> or hit <b>FILL UP</b>, then <b>START</b>.',

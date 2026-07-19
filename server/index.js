@@ -461,7 +461,12 @@ async function handleVs(req, res, url) {
       }
       if (m[2] === 'ban' && req.method === 'POST') {
         const { reason } = await readBody(req)
-        await pool.query('UPDATE benzinlik_player SET banned_at=now(), ban_reason=$2 WHERE id=$1', [id, String(reason || '').slice(0, 300) || null])
+        const rsn = String(reason || '').slice(0, 300) || null
+        await pool.query('UPDATE benzinlik_player SET banned_at=now(), ban_reason=$2 WHERE id=$1', [id, rsn])
+        // CANLI ban: bağlı oturuma "banlandın" gönder + soketleri kapat
+        pushToUser(id, { type: 'ban', reason: rsn || 'Terms of Service violation' })
+        const set = liveSockets.get(Number(id))
+        if (set) for (const ws of set) { try { ws.close() } catch {} }
       } else if (m[2] === 'unban' && req.method === 'POST') {
         await pool.query('UPDATE benzinlik_player SET banned_at=NULL, ban_reason=NULL WHERE id=$1', [id])
       } else if (m[2] === 'balance' && req.method === 'POST') {
