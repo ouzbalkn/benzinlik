@@ -198,6 +198,9 @@ export class UI {
     }
     el<HTMLButtonElement>('stsave').addEventListener('click', save)
     nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') save() })
+    const fbWrap = el<HTMLDivElement>('fbwrap')
+    el<HTMLButtonElement>('fbbtn').addEventListener('click', () => fbWrap.classList.add('show'))
+    fbWrap.addEventListener('pointerdown', e => { if (e.target === fbWrap) fbWrap.classList.remove('show') })
     el<HTMLButtonElement>('fbsend').addEventListener('click', async () => {
       const ta = el<HTMLTextAreaElement>('fbtext')
       const msg = ta.value.trim()
@@ -207,6 +210,7 @@ export class UI {
       try {
         await auth.sendFeedback(msg, this.feedbackContext())
         ta.value = ''
+        el<HTMLDivElement>('fbwrap').classList.remove('show')
         this.toast('Bildirimin alındı — teşekkürler, okuyoruz!', 'good')
       } catch (e) {
         this.toast((e as Error).message || 'Gönderilemedi, tekrar dene.', 'bad')
