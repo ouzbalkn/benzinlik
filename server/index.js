@@ -479,7 +479,7 @@ async function handleVs(req, res, url) {
       const nextCursor = rows.rows.length > limit ? Buffer.from(String(cursor + limit)).toString('base64url') : null
       return json(res, 200, { data: page, nextCursor })
     }
-    const m = url.match(/^\/vs\/v1\/users\/(\d+)(?:\/(ban|unban|balance|detail|restore|rawsave|live))?$/)
+    const m = url.match(/^\/vs\/v1\/users\/(\d+)(?:\/(ban|unban|balance|detail|restore|rawsave|live|verify-email))?$/)
     if (m) {
       const id = Number(m[1])
       const found = await pool.query('SELECT id, email, save, created_at, last_seen_at, sessions, banned_at, ban_reason FROM benzinlik_player WHERE id=$1', [id])
@@ -508,6 +508,13 @@ async function handleVs(req, res, url) {
       }
       if (m[2] === 'rawsave' && req.method === 'GET') {
         return json(res, 200, { data: found.rows[0].save ?? null }) // tam save (admin okuma)
+      }
+      if (m[2] === 'verify-email' && req.method === 'POST') {
+        // admin: manuel e-posta doğrula (kilitli kalanı kurtarma supabı)
+        const { verified } = await readBody(req)
+        const val = verified === false ? false : true
+        await pool.query('UPDATE benzinlik_player SET email_verified=$2, verify_token=NULL WHERE id=$1', [id, val])
+        return json(res, 200, { data: { emailVerified: val } })
       }
       if (m[2] === 'live' && req.method === 'POST') {
         // WebSocket üzerinden anlık: bakiye / bildirim / hot-fix / reload
