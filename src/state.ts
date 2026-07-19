@@ -81,7 +81,7 @@ export class GameState {
   money = START_MONEY
   reputation = 3.0
   /** tabeladaki istasyon adı — hesaba bağlı, kayıtla gezer */
-  stationName = 'BENZİNLİK'
+  stationName = 'BENELOIL'
   /** oyuncunun belirlediği satış fiyatları (alış FUEL_COST'ta sabit) */
   prices: Record<FuelType, number> = { ...FUEL_PRICE }
 

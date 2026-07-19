@@ -1288,8 +1288,7 @@ ui.onRegister = async (email, pass) => {
 }
 ui.onLogout = () => {
   auth.logout()
-  ui.syncAccount(null)
-  ui.toast('Çıkış yapıldı — misafir modundasın.', '')
+  location.href = '/' // doğrudan giriş ekranına dön (misafir modu yok)
 }
 if (isFullMode) {
   for (const key of ['0,0', '0,2', '1,1']) {
