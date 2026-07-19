@@ -473,7 +473,7 @@ export class UI {
     this.shopList.innerHTML = '<div class="shopgrid">' + rows.map(r => {
       const cls = r.status === 'maxed' ? 'card maxed' : r.status === 'locked' ? 'card locked' : 'card'
       let btn: string
-      if (r.status === 'maxed') btn = `<button class="btn cbuy" disabled>MAKS</button>`
+      if (r.status === 'maxed') btn = `<button class="btn cbuy" disabled>${t('MAKS')}</button>`
       else if (r.status === 'locked') btn = `<button class="btn cbuy" disabled>${t('KİLİTLİ')}</button>`
       else {
         const afford = state.money >= (r.cost ?? 0)
