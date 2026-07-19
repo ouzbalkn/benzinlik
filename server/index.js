@@ -134,6 +134,7 @@ function sanitizeSave(save) {
 
 // ---- hız limitleri (bellek içi; tek konteyner için yeterli) ----
 const buckets = new Map() // key -> { n, resetAt }
+let statsCache = { data: null, at: 0 }
 function rateLimit(key, max, windowMs) {
   const now = Date.now()
   const b = buckets.get(key)
@@ -170,6 +171,17 @@ async function handleApi(req, res, url) {
   }
   try {
     if (url === '/api/healthz') return json(res, 200, { ok: true })
+    if (url === '/api/stats' && req.method === 'GET') {
+      const now = Date.now()
+      if (!statsCache.data || now - statsCache.at > 30_000) {
+        const r = await pool.query(`SELECT count(*)::int AS players,
+          count(*) FILTER (WHERE last_seen_at > now() - interval '5 min')::int AS online
+          FROM benzinlik_player`)
+        statsCache = { data: r.rows[0], at: now }
+      }
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=20' })
+      return res.end(JSON.stringify(statsCache.data))
+    }
     if (url === '/api/config') {
       return json(res, 200, { adsClient: process.env.ADSENSE_PUB || null })
     }

@@ -48,6 +48,19 @@ THREE.Object3D.DEFAULT_UP.set(0, 0, 1) // z yukarı
         }
       })
     }
+    // canlı oyuncu sayacı — kayıt öncesi sosyal kanıt (FOMO)
+    fetch('/api/stats').then(r => r.json()).then(st => {
+      const box = document.getElementById('livecount') as HTMLDivElement
+      const pl = document.getElementById('lc-players') as HTMLSpanElement
+      if (st && typeof st.players === 'number' && st.players > 0) {
+        pl.textContent = st.players.toLocaleString('tr-TR')
+        box.style.display = 'block'
+        if (st.online > 1) {
+          ;(document.getElementById('lc-online') as HTMLSpanElement).textContent = String(st.online)
+          ;(document.getElementById('lc-online-wrap') as HTMLSpanElement).style.display = 'inline'
+        }
+      }
+    }).catch(() => {})
     wire('glogin', '/api/login')
     wire('gregister', '/api/register')
     gPass.addEventListener('keydown', e => {
@@ -1224,6 +1237,20 @@ window.addEventListener('pagehide', () => {
   }).catch(() => {})
 })
 ui.syncAccount(auth.currentEmail())
+
+// oyun içi canlı "OYUNDA" sayacı — 60 sn'de bir tazelenir (sosyal kanıt)
+function refreshOnline() {
+  if (isPromoMode) return
+  fetch('/api/stats').then(r => r.json()).then(st => {
+    if (st && typeof st.online === 'number' && st.online > 1) {
+      const chip = document.getElementById('onlinechip') as HTMLDivElement
+      ;(document.getElementById('hud-online') as HTMLSpanElement).textContent = String(st.online)
+      chip.style.display = 'flex'
+    }
+  }).catch(() => {})
+}
+refreshOnline()
+setInterval(refreshOnline, 60_000)
 
 // ---- Zorunlu giriş kapısı: hesap yoksa oyun oynanmaz ----
 async function doLogin(email: string, pass: string) {

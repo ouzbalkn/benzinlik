@@ -313,6 +313,7 @@
     <div class="chip"><span class="cl">DİZEL</span><span class="cv"><svg class="ic" style="color:var(--orange)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-dizel" style="background:var(--orange)"></div></div> <span id="lvl-dizel">0</span></span></div>
     <div class="chip"><span class="cl">LPG</span><span class="cv"><svg class="ic" style="color:var(--blue)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-lpg" style="background:var(--blue)"></div></div> <span id="lvl-lpg">0</span></span></div>
     <div class="chip" id="battchip"><span class="cl">BATARYA</span><span class="cv"><svg class="ic"><use href="#i-batt"/></svg> <div class="bar"><div id="battfill"></div></div> <span id="battkwh">0</span></span></div>
+    <div class="chip" id="onlinechip" style="min-width:72px; display:none"><span class="cl">OYUNDA</span><span class="cv"><svg class="ic"><use href="#i-user"/></svg> <span id="hud-online">0</span></span></div>
     <div class="chip" style="min-width:74px"><span class="cl">İTİBAR</span><span class="cv"><svg class="ic"><use href="#i-star"/></svg> <span id="rep">3.0</span></span></div>
     <div class="chip" style="min-width:104px"><span class="cl">GÜNLÜK GÖREV</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="quest">0/15</span></span></div>
     <div class="spacer"></div>
@@ -504,6 +505,12 @@
       </div>
       <div class="agbody">
         <div class="agsub">İstasyonunu kur, imparatorluğunu büyüt. İlerlemen hesabında güvende.</div>
+        <div id="livecount" style="display:none; margin:2px 0 6px; padding:9px 12px; background:#fbeceb;
+             border:1.5px solid var(--red); border-bottom:3px solid var(--red); border-radius:var(--r-md);
+             font-weight:800; font-size:13.5px; color:var(--red-dark); text-align:center; letter-spacing:.2px">
+          <span id="lc-players">—</span> oyuncu istasyonunu kurdu
+          <span id="lc-online-wrap" style="display:none"> · <span id="lc-online">0</span> şu an oyunda</span>
+        </div>
         <input id="gemail" type="email" placeholder="e-posta" class="accinput" />
         <input id="gpass" type="password" placeholder="şifre" class="accinput" />
         <div class="row" style="display:flex; gap:8px">
