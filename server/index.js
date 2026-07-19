@@ -225,6 +225,7 @@ async function handleApi(req, res, url) {
       })
       if (!ins.rowCount) return json(res, 409, { error: 'Bu e-posta zaten kayıtlı — giriş yap.' })
       bumpStat('signups')
+      pushSignupNotif() // fire-and-forget: ekibe "+1 oyuncu" push (asla signup'ı etkilemez)
       return json(res, 200, { token: sign(e), email: e })
     }
     if (url === '/api/login' && req.method === 'POST') {
@@ -647,6 +648,22 @@ async function handleVs(req, res, url) {
     console.error('vs api:', err)
     json(res, 500, { error: { code: 'server_error', message: 'Sunucu hatası.' } })
   }
+}
+
+// GEÇİCİ: yeni kayıtta sortubes (tubes-api) APNs altyapısından ekibe push.
+// Kendi APNs topic'imiz gelince kaldırılacak (bkz. docs/LIVE-OPS.md §5).
+async function pushSignupNotif() {
+  const key = process.env.TUBES_VS_KEY
+  if (!key || !pool) return
+  try {
+    const c = await pool.query('SELECT count(*)::int AS n FROM benzinlik_player')
+    const total = c.rows[0]?.n ?? 0
+    await fetch('https://tubes-api.benerits.com/vs/v1/notifications/send', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
+      body: JSON.stringify({ segment: { type: 'all' }, title: 'BenelOil', body: `+1 oyuncu geldi 🎉 (toplam ${total})` }),
+    })
+  } catch {}
 }
 
 const server = http.createServer(async (req, res) => {
