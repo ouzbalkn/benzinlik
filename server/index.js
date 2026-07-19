@@ -138,6 +138,14 @@ function sanitizeSave(save) {
     s.elecPrice = clamp(s.elecPrice, 4, 18, 8)
   }
   if (Array.isArray(save.placedRects) && save.placedRects.length > 64) save.placedRects = save.placedRects.slice(0, 64)
+  // parsel koordinatlarını doğrula: sınır dışı (0,4 gibi) key'ler client'ı açılışta crash ettiriyordu
+  const validParcelKey = k => {
+    const p = String(k).split(','); if (p.length !== 2) return false
+    const c = Number(p[0]), r = Number(p[1])
+    return Number.isInteger(c) && Number.isInteger(r) && c >= 0 && c < 6 && r >= 0 && r < 3
+  }
+  if (Array.isArray(s.ownedParcels)) s.ownedParcels = s.ownedParcels.filter(validParcelKey)
+  if (Array.isArray(s.pavedParcels)) s.pavedParcels = s.pavedParcels.filter(validParcelKey)
   if (Array.isArray(s.ownedParcels) && s.ownedParcels.length > 18) s.ownedParcels = s.ownedParcels.slice(0, 18)
   if (Array.isArray(s.achievements) && s.achievements.length > 32) s.achievements = s.achievements.slice(0, 32)
   return save

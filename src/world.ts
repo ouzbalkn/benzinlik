@@ -760,6 +760,7 @@ export class World {
 
   /** satın alınan (henüz betonsuz) arsayı ahşap kazık + ip sınırla işaretle */
   markOwned(c: number, r: number) {
+    if (!PARCEL_COLS[c] || !PARCEL_ROWS[r]) return // sınır dışı parsel: crash koruması
     const [x0, x1] = PARCEL_COLS[c]
     const [y0, y1] = PARCEL_ROWS[r]
     const g = new THREE.Group()
@@ -798,6 +799,7 @@ export class World {
 
   /** arsaya beton döşe (yapı kurmanın ön şartı) — kazık/ip sınırları kaldırılır */
   paveParcel(c: number, r: number) {
+    if (!PARCEL_COLS[c] || !PARCEL_ROWS[r]) return // sınır dışı parsel: crash koruması
     const mark = this.ownedMarks.get(`${c},${r}`)
     if (mark) {
       this.scene.remove(mark)

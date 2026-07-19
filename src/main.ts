@@ -737,14 +737,15 @@ function applySaveData(d: Record<string, unknown>) {
 
 /** kayıttan gelen state'e göre sahneyi yeniden kurar */
 function rebuildFromState() {
+  const validParcel = (c: number, r: number) => Number.isInteger(c) && Number.isInteger(r) && c >= 0 && c < PARCEL_COLS.length && r >= 0 && r < PARCEL_ROWS.length
   for (const key of state.ownedParcels) {
     const [c, r] = key.split(',').map(Number)
-    if (c === 0 && r === 1) continue
+    if ((c === 0 && r === 1) || !validParcel(c, r)) continue // sınır dışı / bozuk parsel atlanır
     world.markOwned(c, r)
   }
   for (const key of state.pavedParcels) {
     const [c, r] = key.split(',').map(Number)
-    if (c === 0 && r === 1) continue
+    if ((c === 0 && r === 1) || !validParcel(c, r)) continue
     world.paveParcel(c, r)
   }
   const pvv = (id: string) => (placedPos[id] ? new THREE.Vector2(placedPos[id][0], placedPos[id][1]) : undefined)
