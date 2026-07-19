@@ -691,13 +691,32 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
 // ---- Kayıt sistemi ----
 
 let lastRemotePush = 0
+// Buluttan kayıt YÜKLENEMEDİYSE (ağ/sunucu hatası) hiçbir kayıt gönderilmez —
+// taze bir oturumun ilerlemiş bulut kaydını EZMESİNİ önler (override koruması).
+let cloudBlocked = false
 
 function savePayload() {
   return { s: serializeState(state), placedPos, placedRot, placedRects, at: Date.now() }
 }
 
+function showCloudBlockOverlay() {
+  if (document.getElementById('cloudblock')) return
+  const o = document.createElement('div')
+  o.id = 'cloudblock'
+  o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d1420f2;display:flex;'
+    + 'align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)'
+  o.innerHTML = `<div style="max-width:420px;text-align:center;color:#eaf1fb;font-family:system-ui,sans-serif">
+    <div style="font-size:44px;margin-bottom:8px">☁️⚠️</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:10px">${t('Buluta bağlanılamadı')}</div>
+    <div style="font-size:14px;line-height:1.5;color:#b8c6da;margin-bottom:20px">${t('İlerlemeni korumak için oyun durduruldu. Kaydın güvende — hiçbir şey silinmedi. Bağlantı gelince yenile.')}</div>
+    <button id="cloudblock-retry" style="padding:12px 22px;font-size:15px;font-weight:700;border:0;border-radius:12px;background:#2f6fed;color:#fff;cursor:pointer">${t('Yenile')}</button>
+  </div>`
+  document.body.appendChild(o)
+  ;(document.getElementById('cloudblock-retry') as HTMLButtonElement).addEventListener('click', () => location.reload())
+}
+
 function persist() {
-  if (isFullMode || isPromoMode) return
+  if (isFullMode || isPromoMode || cloudBlocked) return
   // tek gerçek kaynak SQL: yerel kopya tutulmaz, eski veri asla hortlamaz
   if (auth.loggedIn() && Date.now() - lastRemotePush > 5_000) {
     lastRemotePush = Date.now()
@@ -1239,9 +1258,13 @@ if (!isFullMode && !isPromoMode && auth.loggedIn()) {
       ui.toast(t('Bulut kaydı yüklendi — Gün {0} ({1})', state.day, auth.currentEmail() ?? ''), 'good', true)
     }
   } catch {
-    ui.toast('Buluta ulaşılamadı, yerel kayıt kullanılıyor.', 'bad', true)
+    // Bulut kaydı yüklenemedi: TAZE oturumla oynamaya izin verme — yoksa
+    // ilerlemiş bulut kaydının üstüne yazılır. Oyunu kilitle, kayıt gönderme.
+    cloudBlocked = true
+    showCloudBlockOverlay()
   }
 }
+if (cloudBlocked) await new Promise(() => {}) // oyun motoru burada durur, hiç kayıt gitmez
 if (saveLoaded) rebuildFromState()
 else if (!isFullMode && !isPromoMode) ui.toast('Sıfırdan başlıyorsun — hayırlı olsun patron!', 'good', true)
 // eski yerel kayıt kalıntılarını temizle (artık her şey SQL'de)

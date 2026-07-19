@@ -363,7 +363,7 @@ async function handleVs(req, res, url) {
       const nextCursor = rows.rows.length > limit ? Buffer.from(String(cursor + limit)).toString('base64url') : null
       return json(res, 200, { data: page, nextCursor })
     }
-    const m = url.match(/^\/vs\/v1\/users\/(\d+)(?:\/(ban|unban|balance|detail))?$/)
+    const m = url.match(/^\/vs\/v1\/users\/(\d+)(?:\/(ban|unban|balance|detail|restore))?$/)
     if (m) {
       const id = Number(m[1])
       const found = await pool.query('SELECT id, email, save, created_at, last_seen_at, sessions, banned_at, ban_reason FROM benzinlik_player WHERE id=$1', [id])
@@ -387,6 +387,15 @@ async function handleVs(req, res, url) {
           lastSeen: r.last_seen_at ?? null,
           status: r.banned_at ? `BANNED${r.ban_reason ? ' · ' + r.ban_reason : ''}` : 'Active',
         } })
+      }
+      if (m[2] === 'restore' && req.method === 'POST') {
+        // yedekten tam save geri yükleme (admin) — override kazası kurtarma
+        const body = await readBody(req)
+        const save = body?.save
+        if (!save || typeof save !== 'object') return json(res, 400, { error: { code: 'invalid_request', message: 'save gerekli.' } })
+        await pool.query('UPDATE benzinlik_player SET save=$2 WHERE id=$1', [id, JSON.stringify(save)])
+        const s = save.s || {}
+        return json(res, 200, { data: { restored: true, day: s.day ?? null, station: s.stationName ?? null } })
       }
       if (m[2] === 'ban' && req.method === 'POST') {
         const { reason } = await readBody(req)
