@@ -8,6 +8,7 @@ import {
   parcelKey, parcelCost, buyItem, doMaintenance, getShopItems, serializeState, hydrateState, checkAchievements,
 } from './state'
 import { loadModels, loadStatics } from './models'
+import { t, lang, setLang, translateDom } from './i18n'
 import { audio } from './audio'
 import * as auth from './auth'
 import { initAds, adsEnabled, interstitial, rewarded } from './ads'
@@ -26,6 +27,7 @@ THREE.Object3D.DEFAULT_UP.set(0, 0, 1) // z yukarı
     const gate = document.getElementById('authgate') as HTMLDivElement
     gate.style.display = 'flex'
     gate.classList.add('solid')
+    translateDom() // giriş ekranı metinlerini seçili dile çevir
     const gErr = document.getElementById('agerr') as HTMLDivElement
     const gEmail = document.getElementById('gemail') as HTMLInputElement
     const gPass = document.getElementById('gpass') as HTMLInputElement
@@ -1236,6 +1238,11 @@ window.addEventListener('pagehide', () => {
     body: JSON.stringify({ save: savePayload() }),
   }).catch(() => {})
 })
+translateDom() // HUD + statik metinleri çevir
+;(document.getElementById('lang-tr') as HTMLButtonElement).classList.toggle('good', lang === 'tr')
+;(document.getElementById('lang-en') as HTMLButtonElement).classList.toggle('good', lang === 'en')
+;(document.getElementById('lang-tr') as HTMLButtonElement).addEventListener('click', () => setLang('tr'))
+;(document.getElementById('lang-en') as HTMLButtonElement).addEventListener('click', () => setLang('en'))
 ui.syncAccount(auth.currentEmail())
 
 // oyun içi canlı "OYUNDA" sayacı — 60 sn'de bir tazelenir (sosyal kanıt)
@@ -1697,7 +1704,7 @@ function refreshBuildingCard() {
     card.buy = { label: `${row.title} — ₺${row.cost.toLocaleString('tr-TR')}`, id: shopId }
   }
   if (footprintOf(selectedBuilding)) {
-    card.move = { label: 'Taşı (ücretsiz)', id: selectedBuilding }
+    card.move = { label: t('Taşı'), id: selectedBuilding }
   }
   ui.showBuildingCard(card)
 }

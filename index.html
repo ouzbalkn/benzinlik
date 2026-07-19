@@ -307,21 +307,21 @@
   </svg>
 
   <div class="hud">
-    <div class="chip" style="min-width:62px"><span class="cl">GÜN</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="day">1</span></span></div>
-    <div class="chip" style="min-width:152px"><span class="cl">KASA</span><span class="cv"><svg class="ic"><use href="#i-coin"/></svg> <span id="money">0</span> ₺</span></div>
-    <div class="chip"><span class="cl">BENZİN</span><span class="cv"><svg class="ic" style="color:var(--green)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-benzin" style="background:var(--green)"></div></div> <span id="lvl-benzin">0</span></span></div>
-    <div class="chip"><span class="cl">DİZEL</span><span class="cv"><svg class="ic" style="color:var(--orange)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-dizel" style="background:var(--orange)"></div></div> <span id="lvl-dizel">0</span></span></div>
-    <div class="chip"><span class="cl">LPG</span><span class="cv"><svg class="ic" style="color:var(--blue)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-lpg" style="background:var(--blue)"></div></div> <span id="lvl-lpg">0</span></span></div>
-    <div class="chip" id="battchip"><span class="cl">BATARYA</span><span class="cv"><svg class="ic"><use href="#i-batt"/></svg> <div class="bar"><div id="battfill"></div></div> <span id="battkwh">0</span></span></div>
-    <div class="chip" id="onlinechip" style="min-width:72px; display:none"><span class="cl">OYUNDA</span><span class="cv"><svg class="ic"><use href="#i-user"/></svg> <span id="hud-online">0</span></span></div>
-    <div class="chip" style="min-width:74px"><span class="cl">İTİBAR</span><span class="cv"><svg class="ic"><use href="#i-star"/></svg> <span id="rep">3.0</span></span></div>
-    <div class="chip" style="min-width:104px"><span class="cl">GÜNLÜK GÖREV</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="quest">0/15</span></span></div>
+    <div class="chip" style="min-width:62px"><span class="cl" data-i18n="GÜN">GÜN</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="day">1</span></span></div>
+    <div class="chip" style="min-width:152px"><span class="cl" data-i18n="KASA">KASA</span><span class="cv"><svg class="ic"><use href="#i-coin"/></svg> <span id="money">0</span> ₺</span></div>
+    <div class="chip"><span class="cl" data-i18n="BENZİN">BENZİN</span><span class="cv"><svg class="ic" style="color:var(--green)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-benzin" style="background:var(--green)"></div></div> <span id="lvl-benzin">0</span></span></div>
+    <div class="chip"><span class="cl" data-i18n="DİZEL">DİZEL</span><span class="cv"><svg class="ic" style="color:var(--orange)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-dizel" style="background:var(--orange)"></div></div> <span id="lvl-dizel">0</span></span></div>
+    <div class="chip"><span class="cl" data-i18n="LPG">LPG</span><span class="cv"><svg class="ic" style="color:var(--blue)"><use href="#i-fuel"/></svg> <div class="bar"><div id="fill-lpg" style="background:var(--blue)"></div></div> <span id="lvl-lpg">0</span></span></div>
+    <div class="chip" id="battchip"><span class="cl" data-i18n="BATARYA">BATARYA</span><span class="cv"><svg class="ic"><use href="#i-batt"/></svg> <div class="bar"><div id="battfill"></div></div> <span id="battkwh">0</span></span></div>
+    <div class="chip" id="onlinechip" style="min-width:72px; display:none"><span class="cl" data-i18n="OYUNDA">OYUNDA</span><span class="cv"><svg class="ic"><use href="#i-user"/></svg> <span id="hud-online">0</span></span></div>
+    <div class="chip" style="min-width:74px"><span class="cl" data-i18n="İTİBAR">İTİBAR</span><span class="cv"><svg class="ic"><use href="#i-star"/></svg> <span id="rep">3.0</span></span></div>
+    <div class="chip" style="min-width:104px"><span class="cl" data-i18n="GÜNLÜK GÖREV">GÜNLÜK GÖREV</span><span class="cv"><svg class="ic"><use href="#i-cal"/></svg> <span id="quest">0/15</span></span></div>
     <div class="spacer"></div>
     <button id="adbtn" class="btn warn" style="display:none; width:200px; justify-content:center"><svg class="ic"><use href="#i-star"/></svg><span>Reklam İzle: Müşteri Patlaması</span></button>
     <button id="editbtn" class="btn" title="Düzenleme modu" style="width:52px; justify-content:center"><svg class="ic" style="margin:0"><use href="#i-move"/></svg></button>
-    <button id="closebtn" class="btn" style="width:118px; justify-content:center"><svg class="ic"><use href="#i-power"/></svg><span id="closelabel">Açık</span></button>
-    <button id="orderbtn" class="btn warn" style="width:158px; justify-content:center"><svg class="ic"><use href="#i-truck"/></svg><span id="orderlabel">Yakıt Siparişi</span></button>
-    <button id="shopbtn" class="btn primary" style="width:118px; justify-content:center; position:relative"><svg class="ic"><use href="#i-build"/></svg><span id="shoplabel">İnşaat</span><span id="shopdot"></span></button>
+    <button id="closebtn" class="btn" style="width:118px; justify-content:center"><svg class="ic"><use href="#i-power"/></svg><span id="closelabel" data-i18n="Açık">Açık</span></button>
+    <button id="orderbtn" class="btn warn" style="width:158px; justify-content:center"><svg class="ic"><use href="#i-truck"/></svg><span id="orderlabel" data-i18n="Yakıt Siparişi">Yakıt Siparişi</span></button>
+    <button id="shopbtn" class="btn primary" style="width:118px; justify-content:center; position:relative"><svg class="ic"><use href="#i-build"/></svg><span id="shoplabel" data-i18n="İnşaat">İnşaat</span><span id="shopdot"></span></button>
     <button id="accbtn" class="btn" title="Hesabım"><svg class="ic" style="margin:0"><use href="#i-user"/></svg></button>
     <button id="setbtn" class="btn" title="Ayarlar"><svg class="ic" style="margin:0"><use href="#i-gear"/></svg></button>
   </div>
@@ -330,8 +330,8 @@
     <h3 id="demand">—</h3>
     <div id="fuelctl">
       <div class="row">
-        <button id="noz-benzin" class="btn good nozzle">Benzin</button>
-        <button id="noz-dizel" class="btn warn nozzle">Dizel</button>
+        <button id="noz-benzin" class="btn good nozzle" data-i18n="Benzin">Benzin</button>
+        <button id="noz-dizel" class="btn warn nozzle" data-i18n="Dizel">Dizel</button>
         <button id="noz-lpg" class="btn nozzle" style="background:var(--blue);border-color:#1e4bb0;color:#fff">LPG</button>
       </div>
       <div class="row" style="flex-wrap:wrap; gap:5px">
@@ -348,8 +348,8 @@
       </div>
       <div class="row">
         <input id="amount" type="number" inputmode="numeric" min="0" step="10" placeholder="₺ tutar gir" />
-        <button id="startbtn" class="btn good" disabled>BAŞLAT</button>
-        <button id="fullbtn" class="btn primary" disabled>FULLE</button>
+        <button id="startbtn" class="btn good" disabled data-i18n="BAŞLAT">BAŞLAT</button>
+        <button id="fullbtn" class="btn primary" disabled data-i18n="FULLE">FULLE</button>
       </div>
       <div class="row">
         <div id="liters">—</div>
@@ -357,12 +357,12 @@
     </div>
     <div id="evctl" style="display:none">
       <div class="row">
-        <button id="chargebtn" class="btn">HIZLI ŞARJ</button>
+        <button id="chargebtn" class="btn" data-i18n="HIZLI ŞARJ">HIZLI ŞARJ</button>
       </div>
       <div id="evnote"></div>
     </div>
     <div class="row">
-      <button id="dismissbtn" class="btn" style="flex:1; justify-content:center; opacity:.85">Müşteriyi Gönder</button>
+      <button id="dismissbtn" class="btn" style="flex:1; justify-content:center; opacity:.85" data-i18n="Müşteriyi Gönder">Müşteriyi Gönder</button>
     </div>
   </div>
 
@@ -385,14 +385,14 @@
   <div class="backdrop" id="shopwrap">
     <div class="modal">
       <div class="mhead">
-        <h3>İnşaat &amp; Yatırım</h3>
+        <h3 data-i18n="İnşaat & Yatırım">İnşaat &amp; Yatırım</h3>
         <button class="mclose" data-close="shopwrap"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
       <div class="tabs" id="shoptabs">
-        <button class="tab active" data-cat="istasyon">İstasyon</button>
-        <button class="tab" data-cat="tesis">Tesisler</button>
-        <button class="tab" data-cat="enerji">Enerji</button>
-        <button class="tab" data-cat="arsa">Arsa</button>
+        <button class="tab active" data-cat="istasyon" data-i18n="İstasyon">İstasyon</button>
+        <button class="tab" data-cat="tesis" data-i18n="Tesisler">Tesisler</button>
+        <button class="tab" data-cat="enerji" data-i18n="Enerji">Enerji</button>
+        <button class="tab" data-cat="arsa" data-i18n="Arsa">Arsa</button>
         <button class="tab" data-cat="bakim">Bakım <span class="badge" id="maintbadge" style="display:none">0</span></button>
       </div>
       <div class="mbody">
@@ -451,11 +451,16 @@
   <div class="backdrop" id="setwrap">
     <div class="modal" id="settings">
       <div class="mhead">
-        <h3>Ayarlar</h3>
+        <h3 data-i18n="Ayarlar">Ayarlar</h3>
         <button class="mclose" data-close="setwrap"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
       <div class="mbody">
-        <label for="stname">İstasyon adı (tabelada görünür)</label>
+        <label style="margin-top:0" data-i18n="Dil">Dil</label>
+        <div class="row">
+          <button id="lang-tr" class="btn" style="flex:1; justify-content:center">Türkçe</button>
+          <button id="lang-en" class="btn" style="flex:1; justify-content:center">English</button>
+        </div>
+        <label for="stname" data-i18n="İstasyon adı (tabelada görünür)" style="margin-top:12px">İstasyon adı (tabelada görünür)</label>
         <div class="row">
           <input id="stname" type="text" maxlength="14" placeholder="BENELOIL" />
           <button id="stsave" class="btn good">Kaydet</button>
@@ -473,18 +478,18 @@
         <div id="accbox">
           <div class="sd" id="accstatus" style="margin:0 6px 6px">Giriş yapılmadı.</div>
           <div class="row">
-            <input id="accemail" type="email" placeholder="e-posta" style="flex:1.4" class="accinput" />
-            <input id="accpass" type="password" placeholder="şifre" style="flex:1" class="accinput" />
+            <input id="accemail" type="email" placeholder="e-posta" data-i18n-ph="e-posta" style="flex:1.4" class="accinput" />
+            <input id="accpass" type="password" placeholder="şifre" data-i18n-ph="şifre" style="flex:1" class="accinput" />
           </div>
           <div class="row">
-            <button id="loginbtn" class="btn good" style="flex:1; justify-content:center">Giriş Yap</button>
-            <button id="registerbtn" class="btn primary" style="flex:1; justify-content:center">Kayıt Ol</button>
+            <button id="loginbtn" class="btn good" style="flex:1; justify-content:center" data-i18n="Giriş Yap">Giriş Yap</button>
+            <button id="registerbtn" class="btn primary" style="flex:1; justify-content:center" data-i18n="Kayıt Ol">Kayıt Ol</button>
             <button id="logoutbtn" class="btn" style="flex:1; justify-content:center; display:none">Çıkış</button>
           </div>
         </div>
         <label style="margin-top:12px">Oyun kaydı otomatik tutulur (her 5 sn)</label>
         <div class="row">
-          <button id="resetbtn" class="btn danger" style="flex:1; justify-content:center">Kaydı Sil ve Baştan Başla</button>
+          <button id="resetbtn" class="btn danger" style="flex:1; justify-content:center" data-i18n="Kaydı Sil ve Baştan Başla">Kaydı Sil ve Baştan Başla</button>
         </div>
       </div>
     </div>
@@ -497,18 +502,18 @@
         <span>BENELOIL</span>
       </div>
       <div class="agbody">
-        <div class="agsub">İstasyonunu kur, imparatorluğunu büyüt. İlerlemen hesabında güvende.</div>
+        <div class="agsub" data-i18n="İstasyonunu kur, imparatorluğunu büyüt. İlerlemen hesabında güvende.">İstasyonunu kur, imparatorluğunu büyüt. İlerlemen hesabında güvende.</div>
         <div id="livecount" style="display:none; margin:2px 0 6px; padding:9px 12px; background:#fbeceb;
              border:1.5px solid var(--red); border-bottom:3px solid var(--red); border-radius:var(--r-md);
              font-weight:800; font-size:13.5px; color:var(--red-dark); text-align:center; letter-spacing:.2px">
-          <span id="lc-players">—</span> oyuncu istasyonunu kurdu
-          <span id="lc-online-wrap" style="display:none"> · <span id="lc-online">0</span> şu an oyunda</span>
+          <span id="lc-players">—</span> <span data-i18n="oyuncu istasyonunu kurdu">oyuncu istasyonunu kurdu</span>
+          <span id="lc-online-wrap" style="display:none"> · <span id="lc-online">0</span> <span data-i18n="şu an oyunda">şu an oyunda</span></span>
         </div>
-        <input id="gemail" type="email" placeholder="e-posta" class="accinput" />
-        <input id="gpass" type="password" placeholder="şifre" class="accinput" />
+        <input id="gemail" type="email" placeholder="e-posta" data-i18n-ph="e-posta" class="accinput" />
+        <input id="gpass" type="password" placeholder="şifre" data-i18n-ph="şifre" class="accinput" />
         <div class="row" style="display:flex; gap:8px">
-          <button id="glogin" class="btn good" style="flex:1; justify-content:center">Giriş Yap</button>
-          <button id="gregister" class="btn primary" style="flex:1; justify-content:center">Kayıt Ol</button>
+          <button id="glogin" class="btn good" style="flex:1; justify-content:center" data-i18n="Giriş Yap">Giriş Yap</button>
+          <button id="gregister" class="btn primary" style="flex:1; justify-content:center" data-i18n="Kayıt Ol">Kayıt Ol</button>
         </div>
         <div id="agerr"></div>
         <div style="margin-top:12px; font-size:11px; color:#8a94a0; line-height:1.5; text-align:center">
@@ -524,22 +529,22 @@
   <div class="backdrop" id="fbwrap">
     <div class="modal" style="max-width:440px">
       <div class="mhead">
-        <h3>Sorun Bildir</h3>
+        <h3 data-i18n="Sorun Bildir">Sorun Bildir</h3>
         <button class="mclose" data-close="fbwrap"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
       <div class="mbody" style="padding:16px">
-        <div class="sd" style="margin:0 0 10px">Bug mu buldun, önerin mi var? Yaz gönder — hepsini okuyoruz.</div>
+        <div class="sd" style="margin:0 0 10px" data-i18n="Bug mu buldun, önerin mi var? Yaz gönder — hepsini okuyoruz.">Bug mu buldun, önerin mi var? Yaz gönder — hepsini okuyoruz.</div>
         <textarea id="fbtext" placeholder="Örn: girişte araçlar sıkışıyor / şu özellik olsa süper olur..." maxlength="1000"
           style="width:100%; box-sizing:border-box; min-height:120px; resize:vertical; font-family:inherit; font-size:14px;
                  padding:12px 14px; border:1.5px solid var(--edge); border-radius:var(--r-md); background:#fff; color:var(--ink)"></textarea>
         <div class="row" style="margin-top:10px">
-          <button id="fbsend" class="btn primary" style="flex:1; justify-content:center">Gönder</button>
+          <button id="fbsend" class="btn primary" style="flex:1; justify-content:center" data-i18n="Gönder">Gönder</button>
         </div>
       </div>
     </div>
   </div>
 
-  <button id="fbbtn" title="Sorun Bildir" style="position:fixed; left:14px; bottom:14px; z-index:35;
+  <button id="fbbtn" data-i18n="Sorun Bildir" title="Sorun Bildir" style="position:fixed; left:14px; bottom:14px; z-index:35;
     display:inline-flex; align-items:center; gap:7px; padding:9px 14px; font-family:'Baloo 2',sans-serif;
     font-weight:800; font-size:13px; color:#fff; background:var(--red); border:0; border-bottom:3px solid var(--red-dark);
     border-radius:var(--r-md); box-shadow:var(--shadow); cursor:pointer">
