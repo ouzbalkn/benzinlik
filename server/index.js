@@ -498,6 +498,36 @@ async function handleVs(req, res, url) {
         asOf: new Date().toISOString(),
       })
     }
+    if (url === '/vs/v1/kpi' && req.method === 'GET') {
+      // tek KPI kartı için sade değer: {data:{value,label,deltaPct?}}
+      const k = u.searchParams.get('k') || ''
+      const p = await pool.query(`
+        SELECT
+          count(*)::int AS total,
+          count(*) FILTER (WHERE last_seen_at > now() - interval '5 min')::int AS active5m,
+          count(*) FILTER (WHERE last_seen_at > now() - interval '1 hour')::int AS active1h,
+          count(*) FILTER (WHERE last_seen_at > now() - interval '1 day')::int AS active1d,
+          count(*) FILTER (WHERE created_at > now() - interval '1 day')::int AS new1d
+        FROM benzinlik_player`)
+      const w = await pool.query(`SELECT
+        coalesce(sum(visits),0)::int AS v24, coalesce(sum(signups),0)::int AS s24, coalesce(sum(logins),0)::int AS l24
+        FROM benzinlik_stat_hourly WHERE hour > now() - interval '24 hours'`)
+      const a = p.rows[0], v = w.rows[0]
+      const conv = v.v24 > 0 ? Math.round((v.s24 / v.v24) * 100) : 0
+      const map = {
+        active_now: { value: a.active5m, label: 'playing right now' },
+        active_1h: { value: a.active1h, label: 'active last hour' },
+        active_24h: { value: a.active1d, label: 'active last 24h' },
+        visits_24h: { value: v.v24, label: 'site visits (24h)' },
+        signups_24h: { value: v.s24, label: 'new accounts (24h)' },
+        logins_24h: { value: v.l24, label: 'logins (24h)' },
+        conversion: { value: conv, label: 'visit → signup %' },
+        players_total: { value: a.total, label: 'total players' },
+        new_players_24h: { value: a.new1d, label: 'first-time players (24h)' },
+      }
+      const d = map[k] || { value: 0, label: k }
+      return json(res, 200, { data: d })
+    }
     if (url === '/vs/v1/health' && req.method === 'GET') {
       return json(res, 200, {
         ok: true,
