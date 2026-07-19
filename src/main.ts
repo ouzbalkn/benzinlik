@@ -1383,7 +1383,7 @@ const legacyName = localStorage.getItem('benzinlik-station-name')
 applyStationName(
   state.stationName && state.stationName !== 'BENZİNLİK'
     ? state.stationName
-    : (legacyName && legacyName !== 'OPET' ? legacyName : 'BENZİNLİK'),
+    : (legacyName && legacyName !== 'OPET' ? legacyName : 'BENELOIL'),
   true,
 )
 ui.onRename = name => applyStationName(name)
