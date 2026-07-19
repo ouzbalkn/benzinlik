@@ -211,8 +211,10 @@ async function handleApi(req, res, url) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = (req.url || '/').split('?')[0]
+  let url = (req.url || '/').split('?')[0]
   if (url.startsWith('/api/')) return handleApi(req, res, url)
+  if (url === '/terms') url = '/terms.html'
+  if (url === '/privacy') url = '/privacy.html'
   // statik dosyalar + SPA fallback
   let file = path.join(DIST, path.normalize(url).replace(/^([.][.][/\\])+/, ''))
   if (!file.startsWith(DIST)) file = path.join(DIST, 'index.html')
