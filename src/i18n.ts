@@ -75,6 +75,8 @@ const EN: Record<string, string> = {
   'İstasyon tekrar AÇIK — bekleriz!': 'Station is OPEN again — welcome!',
   'Müşteri beklemekten sıkıldı ve gitti!': 'Customer got tired of waiting and left!',
   'Çıkış yapıldı.': 'Logged out.',
+  'Pompa arızalandı — dolum yarıda kaldı, tamir gerekli.': 'Pump broke down — refill cut short, repair needed.',
+  'Şarj ünitesi arızalandı — şarj durdu, tamir gerekli.': 'Charger broke down — charging stopped, repair needed.',
   '🚿 OTO YIKAMA': '🚿 CAR WASH',
   '☕ KAHVE': '☕ COFFEE',
   '🍽️ RESTORAN': '🍽️ RESTAURANT',

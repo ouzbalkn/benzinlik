@@ -569,6 +569,12 @@ function tickEvCharging(dt: number) {
   for (const c of cars.cars) {
     if (!c.charging) continue
     if (c.phase !== 'atPump') { c.charging = false; continue }
+    if (c.slotIndex >= 0 && state.brokenChargers.has(c.slotIndex)) {
+      c.charging = false
+      ui.toast(t('Şarj ünitesi arızalandı — şarj durdu, tamir gerekli.'), 'bad')
+      cars.releaseCar(c)
+      continue
+    }
     const need = c.demandKwh - c.chargedKwh
     const give = Math.min(need, cap * dt, state.battery)
     state.battery = Math.max(0, state.battery - give)
@@ -2090,6 +2096,11 @@ function frame() {
     // tabanca seçildiyse işlem başladı demektir: sabır donar, müşteri beklemeden gitmez
     if (c.phase === 'atPump' && c.kind === 'fuel') c.beingServed = c.filling || !!c.nozzle
     if (!(c.filling && c.kind === 'fuel' && c.phase === 'atPump' && c.nozzle && !c.wrongFuelHandled)) continue
+    if (c.slotIndex >= 0 && state.brokenPumps.has(c.slotIndex)) {
+      ui.toast(t('Pompa arızalandı — dolum yarıda kaldı, tamir gerekli.'), 'bad')
+      finishSale(c)
+      continue
+    }
     if (state.tanks[c.nozzle] <= 0) {
       ui.toast(t('{0} tankı boş kaldı! Satış yarım kaldı — sipariş ver.', t(FUEL_LABEL[c.nozzle])), 'bad')
       finishSale(c)
