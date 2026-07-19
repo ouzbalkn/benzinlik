@@ -634,10 +634,22 @@ export function hydrateState(s: GameState, data: Record<string, unknown>) {
     for (const f of FUELS) {
       const o = (data.orders as Record<string, { pending?: boolean; eta?: number; arrived?: boolean; delivering?: boolean }>)[f]
       if (o) {
-        s.orders[f].pending = !!o.pending
         s.orders[f].eta = Math.min(60, Math.max(0, Number(o.eta) || 0))
-        s.orders[f].arrived = !!o.arrived
-        s.orders[f].delivering = !!o.delivering
+        // Tanker (fiziksel araç) kaydedilmez. 'delivering' (yolda) ya da 'arrived'
+        // iken yenilenirse tanker nesnesi kaybolur ve teslimat asla tamamlanmazdı —
+        // sipariş sonsuza dek "yolda" takılırdı. Bunları 'arrived' olarak geri yükle;
+        // ana döngü yeni bir tanker spawn edip teslimatı tamamlar. Böylece takılı
+        // kalmış kayıtlar da bir sonraki açılışta kendiliğinden düzelir.
+        if (o.arrived || o.delivering) {
+          s.orders[f].pending = false
+          s.orders[f].arrived = true
+          s.orders[f].delivering = false
+        } else {
+          // pending ama geri sayım bittiyse teslimata geçir; değilse pending kalsın
+          s.orders[f].pending = !!o.pending && s.orders[f].eta > 0
+          s.orders[f].arrived = !!o.pending && s.orders[f].eta <= 0
+          s.orders[f].delivering = false
+        }
       }
     }
   }
