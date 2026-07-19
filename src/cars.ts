@@ -196,7 +196,7 @@ export class Car {
   filling = false
   /** FULLE modu: gizli depo ihtiyacına kadar doldurulur */
   fullMode = false
-  /** müşteri özellikle 'FULLE' istiyor (tutar girilemez) */
+  /** müşteri özellikle t('FULLE') istiyor (tutar girilemez) */
   wantsFull = false
   /** EV: kademeli şarj sürüyor */
   charging = false
@@ -345,7 +345,7 @@ export class Car {
     } else {
       const accent = this.demandType === 'benzin' ? '#27a05a' : this.demandType === 'dizel' ? '#e8862e' : '#2f6fed'
       made = liveSprite(this.wantsFull
-        ? `FULLE ${FUEL_LABEL[this.demandType]}`
+        ? t('FULLE {0}', FUEL_LABEL[this.demandType])
         : `₺${this.demandAmount} ${FUEL_LABEL[this.demandType]}`, accent)
     }
     this.bubble = made.sp

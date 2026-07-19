@@ -233,7 +233,7 @@ export interface Building {
 
 export class World {
   scene = new THREE.Scene()
-  stationName = 'BENZİNLİK'
+  stationName = t('BENZİNLİK')
   private priceView: [number, number, number, number] = [10, 9, 6, 0]
   buildings: Building[] = []
   private closedFlag = false
@@ -782,7 +782,7 @@ export class World {
     line((x0 + x1) / 2, y1 - 0.3, x1 - x0 - 0.6, 0.05)
     line(x0 + 0.3, (y0 + y1) / 2, 0.05, y1 - y0 - 0.6)
     line(x1 - 0.3, (y0 + y1) / 2, 0.05, y1 - y0 - 0.6)
-    // köşede küçük "SAHİBİNDEN ALINDI" kazığı yerine tabela çivisi
+    // köşede küçük t("SAHİBİNDEN ALINDI") kazığı yerine tabela çivisi
     const plate = canvasPanel(1.1, 0.5, 220, 100, (ctx, w, h) => {
       ctx.fillStyle = '#f5f4ef'; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 14); ctx.fill()
       ctx.strokeStyle = '#27a05a'; ctx.lineWidth = 7; ctx.stroke()
@@ -901,13 +901,13 @@ export class World {
       ctx.beginPath(); ctx.roundRect(0, 0, cw, ch, 14); ctx.fill()
       ctx.fillStyle = '#fff'; ctx.font = '800 44px -apple-system, sans-serif'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText(kind === 'in' ? 'GİRİŞ' : 'ÇIKIŞ', cw / 2, ch / 2 + 2)
+      ctx.fillText(kind === 'in' ? t('GİRİŞ') : t('ÇIKIŞ'), cw / 2, ch / 2 + 2)
     })
     label.position.set(0, 1.45, 1.62)
     g.add(label)
     g.position.set(v.x, v.y, 0)
     this.scene.add(g)
-    this.register(id, kind === 'in' ? 'GİRİŞ' : 'ÇIKIŞ', g, 2.1)
+    this.register(id, kind === 'in' ? t('GİRİŞ') : t('ÇIKIŞ'), g, 2.1)
     this.buildRoadEdge()
   }
 
@@ -1085,7 +1085,7 @@ export class World {
   }
 
   setStationName(name: string) {
-    this.stationName = (name.trim() || 'BENZİNLİK').toLocaleUpperCase('tr-TR').slice(0, 14)
+    this.stationName = (name.trim() || t('BENZİNLİK')).toLocaleUpperCase('tr-TR').slice(0, 14)
     this.setSign(this.signLevel)
   }
 
@@ -1121,9 +1121,9 @@ export class World {
       ctx.fillText(this.stationName, W / 2, 44)
       const hasElec = this.priceView[3] > 0
       const rows: [string, string, string][] = [
-        ['BENZİN', this.priceView[0].toFixed(1), '#1c2530'],
-        ['DİZEL', this.priceView[1].toFixed(1), '#1c2530'],
-        ['LPG', this.priceView[2].toFixed(1), '#1c2530'],
+        [t('BENZİN'), this.priceView[0].toFixed(1), '#1c2530'],
+        [t('DİZEL'), this.priceView[1].toFixed(1), '#1c2530'],
+        [t('LPG'), this.priceView[2].toFixed(1), '#1c2530'],
       ]
       if (hasElec) rows.push(['kWh', this.priceView[3].toFixed(1), '#2b7fb8'])
       const rowFs = hasElec ? 26 : 29
@@ -1548,7 +1548,7 @@ export class World {
     this.facadeLights(g, [[1.74, 0, 1.6]], 1.4, 0.4)
     g.position.set(at.x, at.y, 0)
     this.scene.add(g)
-    this.register('oil', 'YAĞ DEĞİŞİMİ', g, 3.3)
+    this.register('oil', t('YAĞ DEĞİŞİMİ'), g, 3.3)
   }
 
   buildSMR(side: 'north' | 'south', pos?: THREE.Vector2) {

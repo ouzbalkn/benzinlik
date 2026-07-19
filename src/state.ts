@@ -3,7 +3,7 @@ export type FuelType = 'benzin' | 'dizel' | 'lpg'
 
 export const FUELS: FuelType[] = ['benzin', 'dizel', 'lpg']
 export const FUEL_PRICE: Record<FuelType, number> = { benzin: 10, dizel: 9, lpg: 6 }
-export const FUEL_LABEL: Record<FuelType, string> = { benzin: 'BENZİN', dizel: 'DİZEL', lpg: 'LPG' }
+export const FUEL_LABEL: Record<FuelType, string> = { benzin: t('Benzin'), dizel: t('Dizel'), lpg: 'LPG' }
 export const FUEL_COST: Record<FuelType, number> = { benzin: 6.5, dizel: 6, lpg: 4 }
 /** her yeni hesabın açılış bakiyesi */
 export const START_MONEY = 5000
@@ -82,7 +82,7 @@ export class GameState {
   money = START_MONEY
   reputation = 3.0
   /** tabeladaki istasyon adı — hesaba bağlı, kayıtla gezer */
-  stationName = 'BENELOIL'
+  stationName = t('BENELOIL')
   /** oyuncunun belirlediği satış fiyatları (alış FUEL_COST'ta sabit) */
   prices: Record<FuelType, number> = { ...FUEL_PRICE }
 
@@ -259,7 +259,7 @@ export class GameState {
     if (this.hasSolar && this.solarDirt < 1) {
       const before = this.solarDirt
       this.solarDirt = Math.min(1, this.solarDirt + 0.0045 * dt)
-      if (before < 0.6 && this.solarDirt >= 0.6) this.events.push('🧽 Güneş panelleri iyice kirlendi, üretim düşüyor!')
+      if (before < 0.6 && this.solarDirt >= 0.6) this.events.push(t('🧽 Güneş panelleri iyice kirlendi, üretim düşüyor!'))
     }
     // uranyum: sipariş takibi + üretim sırasında tükenme
     if (this.uraniumPending) {
@@ -267,27 +267,27 @@ export class GameState {
       if (this.uraniumEta <= 0) {
         this.uraniumPending = false
         this.uranium = 100
-        this.events.push('☢️ Uranyum teslim edildi — reaktör tam güçte!')
+        this.events.push(t('☢️ Uranyum teslim edildi — reaktör tam güçte!'))
       }
     }
     if (this.hasSMR && this.uranium > 0 && this.batteryLevel > 0 && this.battery < this.batteryCapacity) {
       const before = this.uranium
       this.uranium = Math.max(0, this.uranium - URANIUM_DRAIN_PER_S * dt)
-      if (before > 20 && this.uranium <= 20) this.events.push('☢️ Uranyum azalıyor! Yeni çubuk sipariş et.')
-      if (before > 0 && this.uranium === 0) this.events.push('🚨 Uranyum bitti — reaktör üretimi DURDU!')
+      if (before > 20 && this.uranium <= 20) this.events.push(t('☢️ Uranyum azalıyor! Yeni çubuk sipariş et.'))
+      if (before > 0 && this.uranium === 0) this.events.push(t('🚨 Uranyum bitti — reaktör üretimi DURDU!'))
     }
     if (this.hasSMR) {
       const before = this.smrWear
       this.smrWear = Math.min(1, this.smrWear + 0.004 * dt)
-      if (before < 0.5 && this.smrWear >= 0.5) this.events.push('☢️ Reaktör bakım istiyor!')
-      if (before < 0.75 && this.smrWear >= 0.75) this.events.push('🚨 REAKTÖR KRİTİK! Hemen bakım yap yoksa patlayacak!')
+      if (before < 0.5 && this.smrWear >= 0.5) this.events.push(t('☢️ Reaktör bakım istiyor!'))
+      if (before < 0.75 && this.smrWear >= 0.75) this.events.push(t('🚨 REAKTÖR KRİTİK! Hemen bakım yap yoksa patlayacak!'))
       if (this.smrWear > 0.7 && Math.random() < dt * 0.012 * (this.smrWear - 0.7) / 0.3) {
         this.exploded = true
       }
     }
     // süreli fırsatlar
     if (this.promo && Date.now() > this.promo.until) {
-      this.events.push(this.promo.type === 'cheapFuel' ? 'Yakıt indirimi sona erdi.' : 'Müşteri patlaması sona erdi.')
+      this.events.push(this.promo.type === 'cheapFuel' ? t('Yakıt indirimi sona erdi.') : t('Müşteri patlaması sona erdi.'))
       this.promo = null
     }
     if (!this.promo) {
@@ -297,8 +297,8 @@ export class GameState {
         const type = Math.random() < 0.5 ? 'cheapFuel' as const : 'rush' as const
         this.promo = { type, until: Date.now() + 60_000 }
         this.events.push(type === 'cheapFuel'
-          ? 'FIRSAT: 60 saniye boyunca yakıt siparişi YARI FİYAT!'
-          : 'FIRSAT: 60 saniye müşteri patlaması — pompalara koş!')
+          ? t('FIRSAT: 60 saniye boyunca yakıt siparişi YARI FİYAT!')
+          : t('FIRSAT: 60 saniye müşteri patlaması — pompalara koş!'))
       }
     }
 
@@ -308,7 +308,7 @@ export class GameState {
       if (this.truckTimer <= 0) {
         this.truckTimer = 35 + Math.random() * 20
         const m = 90 + Math.floor(Math.random() * 70)
-        this.addPending('truckpark', m, 'Tır parkı')
+        this.addPending('truckpark', m, t('Tır parkı'))
       }
     }
     if (this.hasSelfWash) {
@@ -316,7 +316,7 @@ export class GameState {
       if (this.selfWashTimer <= 0) {
         this.selfWashTimer = 25 + Math.random() * 20
         const m = (30 + Math.floor(Math.random() * 30)) * this.selfWashCount
-        this.addPending('selfwash', m, 'Self yıkama')
+        this.addPending('selfwash', m, t('Self yıkama'))
       }
     }
 
@@ -331,14 +331,14 @@ export class GameState {
       for (let i = 0; i < this.pumps; i++) {
         if (!this.brokenPumps.has(i) && Math.random() < (dt / 3600) * stress * care) {
           this.brokenPumps.add(i)
-          this.events.push(`🔧 Pompa #${i + 1} arıza yaptı! Üstüne tıklayıp karttan tamir et.`)
+          this.events.push(t('🔧 Pompa #{0} arıza yaptı! Üstüne tıklayıp karttan tamir et.', i + 1))
           break
         }
       }
       for (let i = 0; i < this.evChargers; i++) {
         if (!this.brokenChargers.has(i) && Math.random() < (dt / 4200) * stress * care) {
           this.brokenChargers.add(i)
-          this.events.push(`🔌 Şarj ünitesi #${i + 1} arızalandı!`)
+          this.events.push(t('🔌 Şarj ünitesi #{0} arızalandı!', i + 1))
           break
         }
       }
@@ -407,7 +407,7 @@ export class GameState {
     const cur = this.pendingCash[id] ?? 0
     this.pendingCash[id] = Math.min(cap, cur + amt)
     if (cur < cap && this.pendingCash[id] >= cap) {
-      this.events.push(`${name} kumbarası doldu — üstüne tıklayıp topla!`)
+      this.events.push(t('{0} kumbarası doldu — üstüne tıklayıp topla!', name))
     }
   }
 
@@ -443,7 +443,7 @@ export function getShopItems(s: GameState): ShopRow[] {
   const rows: ShopRow[] = []
   const row = (id: string, icon: string, title: string, stat: string, desc: string,
                cost: number | null, locked: string | null) => {
-    if (cost === null) rows.push({ id, icon, title, desc, stat, cost: null, status: 'maxed', note: 'MAKS' })
+    if (cost === null) rows.push({ id, icon, title, desc, stat, cost: null, status: 'maxed', note: t('MAKS') })
     else if (locked) rows.push({ id, icon, title, desc, stat, cost, status: 'locked', note: locked })
     else rows.push({ id, icon, title, desc, stat, cost, status: 'buy', note: '' })
   }
@@ -499,20 +499,20 @@ export function getShopItems(s: GameState): ShopRow[] {
   row('evcharger', 'i-charger', t('DC Şarj Ünitesi #{0}', Math.min(s.evChargers + 1, MAX_EV)), t('+1 ünite'),
     t('Elektrikli araç müşterileri gelmeye başlar; ünite arttıkça EV trafiği artar'),
     s.evChargers >= MAX_EV ? null : EV_COSTS[s.evChargers],
-    s.gridLevel < 1 ? 'Elektrik altyapısı gerekli'
-      : s.batteryLevel < 1 ? 'Önce batarya deposu kur' : null)
-  row('solar', 'i-solar', s.solarCount ? `Güneş Santrali (${s.solarCount})` : 'Güneş Santrali', '+3 kWh/sn',
-    'Bedava üretim — ama kirlenir, düzenli temizlik ister (sınırsız kurulur)',
+    s.gridLevel < 1 ? t('Elektrik altyapısı gerekli')
+      : s.batteryLevel < 1 ? t('Önce batarya deposu kur') : null)
+  row('solar', 'i-solar', s.solarCount ? t('Güneş Santrali ({0})', s.solarCount) : t('Güneş Santrali'), '+3 kWh/sn',
+    t('Bedava üretim — ama kirlenir, düzenli temizlik ister (sınırsız kurulur)'),
     SOLAR_COST,
     s.gridLevel < 1 ? t('Elektrik altyapısı gerekli') : null)
-  row('dieselgen', 'i-gen', 'Dizel Jeneratör', '+7 kWh/sn',
-    'Tanktan mazot yakar — gürültüsü şarjdaki müşterileri kaçırır',
+  row('dieselgen', 'i-gen', t('Dizel Jeneratör'), '+7 kWh/sn',
+    t('Tanktan mazot yakar — gürültüsü şarjdaki müşterileri kaçırır'),
     s.hasDiesel ? null : DIESELGEN_COST,
     s.gridLevel < 1 ? t('Elektrik altyapısı gerekli') : null)
-  row('smr', 'i-reactor', 'Modüler Reaktör', '+15 kWh/sn',
-    'Dev üretim — bakımsız kalırsa PATLAR, her şey sıfırlanır',
+  row('smr', 'i-reactor', t('Modüler Reaktör'), '+15 kWh/sn',
+    t('Dev üretim — bakımsız kalırsa PATLAR, her şey sıfırlanır'),
     s.hasSMR ? null : SMR_COST,
-    s.gridLevel < 2 ? 'Altyapı Sv.2 gerekli' : null)
+    s.gridLevel < 2 ? t('Altyapı Sv.2 gerekli') : null)
 
   return rows
 }
@@ -533,30 +533,30 @@ export function getMaintenanceItems(s: GameState): MaintRow[] {
   if (s.hasSolar) {
     rows.push({
       id: 'clean-solar', icon: 'i-clean',
-      title: `Panel Temizliği (kir %${Math.round(s.solarDirt * 100)})`,
+      title: t('Panel Temizliği (kir %{0})', Math.round(s.solarDirt * 100)),
       cost: 300, urgent: s.solarDirt > 0.6, disabled: s.solarDirt < 0.15,
     })
   }
   if (s.hasSMR) {
     rows.push({
       id: 'maint-smr', icon: 'i-reactor',
-      title: `Reaktör Bakımı (yıpranma %${Math.round(s.smrWear * 100)})`,
+      title: t('Reaktör Bakımı (yıpranma %{0})', Math.round(s.smrWear * 100)),
       cost: 1500, urgent: s.smrWear > 0.6, disabled: s.smrWear < 0.1,
     })
     rows.push({
       id: 'order-uranium', icon: 'i-uranium',
       title: s.uraniumPending
         ? `Uranyum yolda (${Math.ceil(s.uraniumEta)}sn)`
-        : `Uranyum Siparişi (%${Math.round(s.uranium)} kaldı)`,
+        : t('Uranyum Siparişi (%{0} kaldı)', Math.round(s.uranium)),
       cost: URANIUM_COST, urgent: s.uranium <= 15 && !s.uraniumPending,
       disabled: s.uraniumPending || s.uranium > 60,
     })
   }
   for (const i of s.brokenPumps) {
-    rows.push({ id: `fix-pump-${i}`, icon: 'i-wrench', title: `Pompa #${i + 1} Tamiri`, cost: 800, urgent: true, disabled: false })
+    rows.push({ id: `fix-pump-${i}`, icon: 'i-wrench', title: t('Pompa #{0} Tamiri', i + 1), cost: 800, urgent: true, disabled: false })
   }
   for (const i of s.brokenChargers) {
-    rows.push({ id: `fix-charger-${i}`, icon: 'i-wrench', title: `Şarj #${i + 1} Tamiri`, cost: 1000, urgent: true, disabled: false })
+    rows.push({ id: `fix-charger-${i}`, icon: 'i-wrench', title: t('Şarj #{0} Tamiri', i + 1), cost: 1000, urgent: true, disabled: false })
   }
   return rows
 }
@@ -564,21 +564,21 @@ export function getMaintenanceItems(s: GameState): MaintRow[] {
 // ---- Başarımlar ----
 
 const ACHIEVEMENTS: [string, string, (s: GameState) => boolean][] = [
-  ['first-10k', 'İlk ₺10.000 — Esnaf oldun!', s => s.money >= 10000],
+  ['first-10k', t('İlk ₺10.000 — Esnaf oldun!'), s => s.money >= 10000],
   ['rich-100k', '₺100.000 — Patron!', s => s.money >= 100000],
-  ['five-star', '5 yıldız itibar — Efsane istasyon!', s => s.reputation >= 4.95],
+  ['five-star', t('5 yıldız itibar — Efsane istasyon!'), s => s.reputation >= 4.95],
   ['full-pumps', '4 pompa — Tam kadro!', s => s.pumps >= 4],
-  ['electric-age', 'Elektrik çağı — İlk şarj ünitesi!', s => s.evChargers >= 1],
-  ['atomic', 'Atom karıncası — Reaktör kuruldu!', s => s.hasSMR],
-  ['landlord', 'Toprak ağası — 9 arsanın tamamı!', s => s.ownedParcels.size >= 9],
-  ['week-one', '7. gün — Bir haftadır ayaktasın!', s => s.day >= 7],
+  ['electric-age', t('Elektrik çağı — İlk şarj ünitesi!'), s => s.evChargers >= 1],
+  ['atomic', t('Atom karıncası — Reaktör kuruldu!'), s => s.hasSMR],
+  ['landlord', t('Toprak ağası — 9 arsanın tamamı!'), s => s.ownedParcels.size >= 9],
+  ['week-one', t('7. gün — Bir haftadır ayaktasın!'), s => s.day >= 7],
 ]
 
 export function checkAchievements(s: GameState) {
   for (const [id, title, cond] of ACHIEVEMENTS) {
     if (!s.achievements.has(id) && cond(s)) {
       s.achievements.add(id)
-      s.events.push(`🏆 Başarım: ${title}`)
+      s.events.push(t('🏆 Başarım: {0}', title))
     }
   }
 }

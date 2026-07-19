@@ -41,7 +41,7 @@ THREE.Object3D.DEFAULT_UP.set(0, 0, 1) // z yukarı
             body: JSON.stringify({ email: gEmail.value, password: gPass.value }),
           })
           const d = await res.json().catch(() => ({}))
-          if (!res.ok) throw new Error(d.error ?? 'Sunucuya ulaşılamadı.')
+          if (!res.ok) throw new Error(d.error ?? t('Sunucuya ulaşılamadı.'))
           localStorage.setItem('benzinlik-token', d.token)
           localStorage.setItem('benzinlik-email', d.email)
           location.reload()
@@ -158,7 +158,7 @@ ui.tankerStatus = () => {
   for (const f of FUELS) {
     const active = tankers.find(x => x.fuel === f)
     if (active) {
-      if (active.t.unloading) parts.push(`${FUEL_LABEL[f]} · boşaltıyor`)
+      if (active.t.unloading) parts.push(t('{0} · boşaltıyor', t(FUEL_LABEL[f])))
       else {
         const d = active.t.group.position.distanceTo(new THREE.Vector3(world.tankAnchor.x, world.tankAnchor.y, 0))
         parts.push(`${FUEL_LABEL[f]} · ${Math.max(1, Math.round(d))}m`)
@@ -198,8 +198,8 @@ const cars = new CarManager(world.scene, modelLib, {
   truckSpots: () => world.getTruckSpots(),
   onTruckParked: () => {
     const fee = 40 + Math.round(Math.random() * 40)
-    state.addPending('truckpark', fee, 'Tır parkı')
-    ui.toast(`Tır park etti: ₺${fee} kumbarada`, 'good', true)
+    state.addPending('truckpark', fee, t('Tır parkı'))
+    ui.toast(t('Tır park etti: ₺{0} kumbarada', fee), 'good', true)
   },
   onCarReady: car => { if (!ui.activeCar) ui.selectCar(car) },
   onEvTurnedAway: () => {
@@ -275,22 +275,22 @@ interface Visit {
 function facilityVisits(car: Car): Visit[] {
   const v: Visit[] = []
   if (car.wantsMarket && state.marketLevel > 0) {
-    v.push({ buildingId: 'market', revenue: () => Math.round((25 + Math.random() * 35) * state.marketLevel), toastMsg: m => `🛒 Market alışverişi: +₺${m}`, score: 0.2 })
+    v.push({ buildingId: 'market', revenue: () => Math.round((25 + Math.random() * 35) * state.marketLevel), toastMsg: m => t('🛒 Market alışverişi: +₺{0}', m), score: 0.2 })
   }
   if (car.wantsToilet && state.toiletLevel > 0) {
     const fee = state.toiletFee
     v.push({
       buildingId: 'toilet',
       revenue: () => fee,
-      toastMsg: mm => `🚻 Tuvalet ücreti: +₺${mm}`,
+      toastMsg: mm => t('🚻 Tuvalet ücreti: +₺{0}', mm),
       score: 0.15 * state.toiletLevel - (fee > 0 ? 0.03 + fee * 0.012 : 0),
     })
   }
   if (car.wantsCoffee && state.hasCoffee) {
-    v.push({ buildingId: 'coffee', revenue: () => Math.round(20 + Math.random() * 25), toastMsg: m => `☕ Kahve satışı: +₺${m}`, score: 0.15 })
+    v.push({ buildingId: 'coffee', revenue: () => Math.round(20 + Math.random() * 25), toastMsg: m => t('☕ Kahve satışı: +₺{0}', m), score: 0.15 })
   }
   if (car.wantsFood && state.hasRestaurant) {
-    v.push({ buildingId: 'restaurant', revenue: () => Math.round(80 + Math.random() * 80), toastMsg: m => `🍽️ Restoran hesabı: +₺${m}`, score: 0.25 })
+    v.push({ buildingId: 'restaurant', revenue: () => Math.round(80 + Math.random() * 80), toastMsg: m => t('🍽️ Restoran hesabı: +₺{0}', m), score: 0.25 })
   }
   return v
 }
@@ -312,13 +312,13 @@ function vehicleServices(car: Car): number {
   let d = 0
   if (car.wantsWash && state.hasWash) {
     const m = Math.round(60 + Math.random() * 60)
-    state.addPending('wash', m, 'Oto yıkama'); d += 0.2
-    ui.toast(`Araç yıkandı: ₺${m} kumbarada`, 'good')
+    state.addPending('wash', m, t('Oto yıkama')); d += 0.2
+    ui.toast(t('Araç yıkandı: ₺{0} kumbarada', m), 'good')
   }
   if (car.wantsOil && state.hasOil) {
     const m = Math.round(150 + Math.random() * 100)
     state.facEarn('oil', m); d += 0.25
-    ui.toast(`🔧 Yağ değişimi yapıldı: +₺${m}`, 'good')
+    ui.toast(t('🔧 Yağ değişimi yapıldı: +₺{0}', m), 'good')
   }
   if (car.wantsAir && state.hasAirWater) {
     const m = Math.round(10 + Math.random() * 10)
@@ -447,7 +447,7 @@ function trackDaily() {
     ui.toast('GÜNLÜK GÖREV TAMAM: 15 müşteri — ödül +₺1.000!', 'good', true)
     audio.achieve()
   } else if (!state.dailyDone && state.dailyServed % 5 === 0) {
-    ui.toast(`Günlük görev: ${state.dailyServed}/15 müşteri`, '', true)
+    ui.toast(t('Günlük görev: {0}/15 müşteri', state.dailyServed), '', true)
   }
 }
 
@@ -521,7 +521,7 @@ function wrongFuel(car: Car) {
   car.filling = false
   state.money -= WRONG_FUEL_PENALTY
   state.addRep(-0.4)
-  ui.toast(`🚨 ${FUEL_LABEL[car.demandType]} isteyen araca ${FUEL_LABEL[car.nozzle!]} bastın! -${WRONG_FUEL_PENALTY} ₺`, 'bad')
+  ui.toast(t('🚨 {0} isteyen araca {1} bastın! -{2} ₺', FUEL_LABEL[car.demandType], FUEL_LABEL[car.nozzle!], WRONG_FUEL_PENALTY), 'bad')
   car.showFeedback('😡')
   cars.releaseCar(car)
   if (ui.activeCar === car) ui.selectCar(nextServableCar())
@@ -582,7 +582,7 @@ function tickEvCharging(dt: number) {
       state.stats.revenue += revenue
       let score = 4.5
       if (c.patienceFrac < 0.4) score -= 1.5
-      ui.toast(`⚡ ${c.demandKwh} kWh şarj tamamlandı: +₺${revenue}`, 'good')
+      ui.toast(t('⚡ {0} kWh şarj tamamlandı: +₺{1}', c.demandKwh, revenue), 'good')
       const anyFacility = state.marketLevel > 0 || state.toiletLevel > 0 || state.hasCoffee || state.hasRestaurant
       if (anyFacility && Math.random() < 0.12) {
         // işgalci: aracı ünitede bırakıp tesislere gidiyor — GÖNDER'e basılana dek yer dolu
@@ -1022,8 +1022,8 @@ function startPlacement(id: string, move = false) {
   ui.closeShop()
   ui.hideBuildingCard()
   ui.toast(move
-    ? 'Taşıma modu: yeni yeri seç · R ile döndür · sağ tık/ESC iptal'
-    : 'Yerleştirme modu: kareye tıkla · R ile döndür · sağ tık/ESC iptal', '')
+    ? t('Taşıma modu: yeni yeri seç · R ile döndür · sağ tık/ESC iptal')
+    : t('Yerleştirme modu: kareye tıkla · R ile döndür · sağ tık/ESC iptal'), '')
 }
 
 function startZoneMode(kind: 'land' | 'pave') {
@@ -1032,8 +1032,8 @@ function startZoneMode(kind: 'land' | 'pave') {
   world.showGrid(true)
   ui.closeShop()
   ui.toast(kind === 'land'
-    ? '🏞️ Arsa seçimi: bitişik parsele tıkla (₺6-14 bin) · ESC iptal'
-    : '🧱 Zemin seçimi: betonlanacak arsana tıkla · ESC iptal', '')
+    ? t('🏞️ Arsa seçimi: bitişik parsele tıkla (₺6-14 bin) · ESC iptal')
+    : t('🧱 Zemin seçimi: betonlanacak arsana tıkla · ESC iptal'), '')
 }
 
 function cancelPlacement() {
@@ -1109,7 +1109,7 @@ function confirmZone() {
     state.money -= cost
     state.ownedParcels.add(key)
     world.markOwned(z.c, z.r)
-    ui.toast(`🏞️ Arsa satın alındı (-₺${cost.toLocaleString('tr-TR')}) — yapı için Zemin Betonu döşe.`, 'good')
+    ui.toast(t('🏞️ Arsa satın alındı (-₺{0}) — yapı için Zemin Betonu döşe.', cost.toLocaleString('tr-TR')), 'good')
   } else {
     if (state.money < PAVE_COST) { ui.toast(t('💸 Para yetmiyor!'), 'bad'); return }
     state.money -= PAVE_COST
@@ -1190,7 +1190,7 @@ function buyToast(id: string) {
     case 'tank': ui.toast(`🛢️ Tank kapasitesi: ${state.tankCapacity}L`, 'good'); break
     case 'market': ui.toast('🛒 Market açıldı!', 'good'); break
     case 'toilet': ui.toast('🚻 Tuvalet hizmete girdi!', 'good'); break
-    case 'grid': ui.toast(`⚡ Elektrik altyapısı Sv.${state.gridLevel} kuruldu!`, 'good'); break
+    case 'grid': ui.toast(t('⚡ Elektrik altyapısı Sv.{0} kuruldu!', state.gridLevel), 'good'); break
     case 'battery': ui.toast('🔋 Batarya deposu kuruldu — üretim biriktikçe dolacak.', 'good'); break
     case 'evcharger': syncSignPrices(); ui.toast('🔌 DC şarj ünitesi kuruldu!', 'good'); break
     case 'solar': ui.toast('☀️ Güneş santrali kuruldu. ⚠️ Paneller zamanla kirlenir!', 'good'); break
@@ -1216,7 +1216,7 @@ if (!isFullMode && !isPromoMode && auth.loggedIn()) {
     if (remote) {
       applySaveData(remote as Record<string, unknown>)
       saveLoaded = true
-      ui.toast(`Bulut kaydı yüklendi — Gün ${state.day} (${auth.currentEmail()})`, 'good', true)
+      ui.toast(t('Bulut kaydı yüklendi — Gün {0} ({1})', state.day, auth.currentEmail() ?? ''), 'good', true)
     }
   } catch {
     ui.toast('Buluta ulaşılamadı, yerel kayıt kullanılıyor.', 'bad', true)
@@ -1245,7 +1245,7 @@ translateDom() // HUD + statik metinleri çevir
 ;(document.getElementById('lang-en') as HTMLButtonElement).addEventListener('click', () => setLang('en'))
 ui.syncAccount(auth.currentEmail())
 
-// oyun içi canlı "OYUNDA" sayacı — 60 sn'de bir tazelenir (sosyal kanıt)
+// oyun içi canlı t("OYUNDA") sayacı — 60 sn'de bir tazelenir (sosyal kanıt)
 function refreshOnline() {
   if (isPromoMode) return
   fetch('/api/stats').then(r => r.json()).then(st => {
@@ -1280,7 +1280,7 @@ document.getElementById('authgate')?.remove()
     state.lastLoginDate = today
     const bonus = 250 + 250 * Math.min(state.loginStreak, 7)
     state.money += bonus
-    ui.toast(`Günlük giriş bonusu: +₺${bonus} (seri: ${state.loginStreak} gün)`, 'good', true)
+    ui.toast(t('Günlük giriş bonusu: +₺{0} (seri: {1} gün)', bonus, state.loginStreak), 'good', true)
     audio.achieve()
     state.dailyDate = today
     state.dailyServed = 0
@@ -1299,15 +1299,15 @@ document.getElementById('authgate')?.remove()
     if (offSec > 90) {
       let total = 0
       const gains: [string, string, number][] = []
-      if (state.hasTruckPark) gains.push(['truckpark', 'Tır parkı', 125 / 45])
-      if (state.hasSelfWash) gains.push(['selfwash', 'Self yıkama', 45 / 35])
+      if (state.hasTruckPark) gains.push(['truckpark', t('Tır parkı'), 125 / 45])
+      if (state.hasSelfWash) gains.push(['selfwash', t('Self yıkama'), 45 / 35])
       for (const [id, name, rate] of gains) {
         const amt = Math.round(rate * offSec)
         state.addPending(id, amt, name)
         total += Math.min(amt, 600)
       }
       if (total > 0) {
-        ui.toast(`Sen yokken tesislerin çalıştı: kumbaralarda ~₺${total} birikti — topla!`, 'good', true)
+        ui.toast(t('Sen yokken tesislerin çalıştı: kumbaralarda ~₺{0} birikti — topla!', total), 'good', true)
         audio.cash()
       }
     }
@@ -1365,8 +1365,8 @@ ui.onMaint = id => {
     if (state.autoChargers.has(i)) state.autoChargers.delete(i)
     else state.autoChargers.add(i)
     ui.toast(state.autoChargers.has(i)
-      ? `DC Şarj #${i + 1}: otomatik şarj AÇIK — EV'ler sormadan şarj alır.`
-      : `DC Şarj #${i + 1}: otomatik şarj kapalı.`, 'good')
+      ? t('DC Şarj #{0}: otomatik şarj AÇIK — EV sormadan şarj alır.', i + 1)
+      : t('DC Şarj #{0}: otomatik şarj kapalı.', i + 1), 'good')
     refreshBuildingCard()
     persist()
     return
@@ -1403,8 +1403,8 @@ ui.onToggleClosed = () => {
   state.closed = !state.closed
   world.setClosed(state.closed)
   ui.toast(state.closed
-    ? 'İstasyon KAPALI — yeni müşteri girmez, itibar etkilenmez. Bakım için rahatsın.'
-    : 'İstasyon tekrar AÇIK — bekleriz!', state.closed ? '' : 'good')
+    ? t('İstasyon KAPALI — yeni müşteri girmez, itibar etkilenmez. Bakım için rahatsın.')
+    : t('İstasyon tekrar AÇIK — bekleriz!'), state.closed ? '' : 'good')
   persist()
 }
 
@@ -1417,7 +1417,7 @@ function applyStationName(name: string, silent = false) {
   nameInput.value = world.stationName
   document.title = `${world.stationName} — Benzinlik`
   if (!silent) {
-    ui.toast(`Tabela güncellendi: ${world.stationName}`, 'good')
+    ui.toast(t('Tabela güncellendi: {0}', world.stationName), 'good')
     persist()
   }
 }
@@ -1425,9 +1425,9 @@ function applyStationName(name: string, silent = false) {
 // eski tarayıcı-geneli isim kaydından hesaba göç (bir kereye mahsus)
 const legacyName = localStorage.getItem('benzinlik-station-name')
 applyStationName(
-  state.stationName && state.stationName !== 'BENZİNLİK'
+  state.stationName && state.stationName !== t('BENZİNLİK')
     ? state.stationName
-    : (legacyName && legacyName !== 'OPET' ? legacyName : 'BENELOIL'),
+    : (legacyName && legacyName !== 'OPET' ? legacyName : t('BENELOIL')),
   true,
 )
 ui.onRename = name => applyStationName(name)
@@ -1440,7 +1440,7 @@ if (!isFullMode && auth.currentEmail() === 'oguz@benerits.com' && !localStorage.
   if (extra.length > 0) {
     for (const k of extra) state.pavedParcels.delete(k)
     state.money += extra.length * PAVE_COST
-    ui.toast(`Beton iadesi: ${extra.length} arsa söküldü, +₺${(extra.length * PAVE_COST).toLocaleString('tr-TR')} iade edildi.`, 'good', true)
+    ui.toast(t('Beton iadesi: {0} arsa söküldü, +₺{1} iade edildi.', extra.length, (extra.length * PAVE_COST).toLocaleString('tr-TR')), 'good', true)
     persist()
     setTimeout(() => location.reload(), 1200) // sahne temiz kurulsun
   }
@@ -1475,12 +1475,12 @@ function buildingCard(id: string): BuildingCard | null {
     const broken = state.brokenPumps.has(i)
     return {
       icon: 'i-fuel', name: `Pompa #${i + 1}`,
-      desc: 'Benzin ve dizel dolumu. Müşterinin istediği yakıtı ve tutarı sen girersin — yanlış tabanca cezalıdır.',
+      desc: t('Benzin ve dizel dolumu. Müşterinin istediği yakıtı ve tutarı sen girersin — yanlış tabanca cezalıdır.'),
       stats: [
         [t('Durum'), broken ? t('ARIZALI') : t('Çalışıyor'), broken ? 'bad' : 'good'],
-        ['Dolum hızı', `${FILL_RATE} L/sn`],
-        ['Benzin', `₺${FUEL_PRICE.benzin}/L`],
-        ['Dizel', `₺${FUEL_PRICE.dizel}/L`],
+        [t('Dolum hızı'), `${FILL_RATE} L/sn`],
+        [t('Benzin'), `₺${FUEL_PRICE.benzin}/L`],
+        [t('Dizel'), `₺${FUEL_PRICE.dizel}/L`],
       ],
       action: broken ? { label: '🔧 Tamir Et — ₺800', maintId: `fix-pump-${i}` } : undefined,
     }
@@ -1489,33 +1489,33 @@ function buildingCard(id: string): BuildingCard | null {
     const i = Number(id.slice(8))
     const broken = state.brokenChargers.has(i)
     return {
-      icon: 'i-charger', name: `DC Şarj #${i + 1}`,
-      desc: 'Elektrikli araçlar batarya deposundan anında şarj olur. Depoda yeterli kWh yoksa müşteri bekler.',
+      icon: 'i-charger', name: t('DC Şarj #{0}', i + 1),
+      desc: t('Elektrikli araçlar batarya deposundan anında şarj olur. Depoda yeterli kWh yoksa müşteri bekler.'),
       stats: [
         [t('Durum'), broken ? t('ARIZALI') : t('Çalışıyor'), broken ? 'bad' : 'good'],
-        ['Şarj süresi', 'Anında'],
-        ['Satış', `₺${state.elecPrice}/kWh`],
+        [t('Şarj süresi'), t('Anında')],
+        [t('Satış'), `₺${state.elecPrice}/kWh`],
       ],
       action: broken
         ? { label: '🔧 Tamir Et — ₺1.000', maintId: `fix-charger-${i}` }
-        : { label: `Otomatik Şarj: ${state.autoChargers.has(i) ? 'AÇIK' : 'KAPALI'} — değiştir`, maintId: `auto-charger-${i}` },
+        : { label: t('Otomatik Şarj: {0} — değiştir', state.autoChargers.has(i) ? t('AÇIK') : t('KAPALI')), maintId: `auto-charger-${i}` },
     }
   }
   switch (id) {
     case 'office': {
       const fx = Math.round((state.priceDemandFactor() - 1) * 100)
       return {
-        icon: 'i-office', name: 'Ofis — Fiyat Yönetimi',
-        desc: 'Alış fiyatı sabittir; satış fiyatını sen belirlersin. Marjı açtıkça litre başı kazanç artar ama müşteri kaçar.',
+        icon: 'i-office', name: t('Ofis — Fiyat Yönetimi'),
+        desc: t('Alış fiyatı sabittir; satış fiyatını sen belirlersin. Marjı açtıkça litre başı kazanç artar ama müşteri kaçar.'),
         stats: [
-          ['Müşteri etkisi', `${fx >= 0 ? '+' : ''}${fx}%`, fx >= 0 ? 'good' : 'bad'],
-          ['İtibar', state.reputation.toFixed(1)],
-          ['Toplam müşteri', `${state.stats.served}`, 'good'],
-          ['Kaçan müşteri', `${state.stats.lost}`, state.stats.lost > state.stats.served / 4 ? 'bad' : ''],
-          ['Benzin satışı', `${Math.round(state.stats.liters.benzin)} L`],
-          ['Dizel satışı', `${Math.round(state.stats.liters.dizel)} L`],
-          ['LPG satışı', `${Math.round(state.stats.liters.lpg)} L`],
-          ['Elektrik satışı', `${Math.round(state.stats.kwh)} kWh`],
+          [t('Müşteri etkisi'), `${fx >= 0 ? '+' : ''}${fx}%`, fx >= 0 ? 'good' : 'bad'],
+          [t('İtibar'), state.reputation.toFixed(1)],
+          [t('Toplam müşteri'), `${state.stats.served}`, 'good'],
+          [t('Kaçan müşteri'), `${state.stats.lost}`, state.stats.lost > state.stats.served / 4 ? 'bad' : ''],
+          [t('Benzin satışı'), `${Math.round(state.stats.liters.benzin)} L`],
+          [t('Dizel satışı'), `${Math.round(state.stats.liters.dizel)} L`],
+          [t('LPG satışı'), `${Math.round(state.stats.liters.lpg)} L`],
+          [t('Elektrik satışı'), `${Math.round(state.stats.kwh)} kWh`],
           ['Toplam ciro', `₺${Math.round(state.stats.revenue).toLocaleString('tr-TR')}`, 'good'],
         ],
         priceRows: [
@@ -1535,149 +1535,149 @@ function buildingCard(id: string): BuildingCard | null {
     }
     case 'gatein':
       return {
-        icon: 'i-move', name: 'Giriş Kapısı',
-        desc: 'Müşteriler ve tankerler istasyona buradan girer. Taşı butonuyla yol kenarında istediğin yere al — trafik akışı kendini uyarlar.',
-        stats: [['Konum', `y ${Math.round(world.gateIn.y)}`], ['Kural', 'Çıkışla arası en az 5 birim']],
+        icon: 'i-move', name: t('Giriş Kapısı'),
+        desc: t('Müşteriler ve tankerler istasyona buradan girer. Taşı butonuyla yol kenarında istediğin yere al — trafik akışı kendini uyarlar.'),
+        stats: [['Konum', `y ${Math.round(world.gateIn.y)}`], ['Kural', t('Çıkışla arası en az 5 birim')]],
       }
     case 'gateout':
       return {
-        icon: 'i-move', name: 'Çıkış Kapısı',
-        desc: 'Araçlar istasyondan buradan çıkıp yola karışır. Taşı butonuyla yerini belirle.',
-        stats: [['Konum', `y ${Math.round(world.gateOut.y)}`], ['Kural', 'Girişle arası en az 5 birim']],
+        icon: 'i-move', name: t('Çıkış Kapısı'),
+        desc: t('Araçlar istasyondan buradan çıkıp yola karışır. Taşı butonuyla yerini belirle.'),
+        stats: [['Konum', `y ${Math.round(world.gateOut.y)}`], ['Kural', t('Girişle arası en az 5 birim')]],
       }
     case 'tank':
       return {
-        icon: 'i-tank', name: 'Yakıt Tankı',
-        desc: 'Sattığın benzin ve dizel buradan çıkar. Bitirmeden tanker siparişi vermeyi unutma.',
+        icon: 'i-tank', name: t('Yakıt Tankı'),
+        desc: t('Sattığın benzin ve dizel buradan çıkar. Bitirmeden tanker siparişi vermeyi unutma.'),
         stats: [
-          ['Benzin', `${Math.round(state.tanks.benzin)} / ${state.tankCapacity}L`, state.tanks.benzin < state.tankCapacity * 0.15 ? 'bad' : ''],
-          ['Dizel', `${Math.round(state.tanks.dizel)} / ${state.tankCapacity}L`, state.tanks.dizel < state.tankCapacity * 0.15 ? 'bad' : ''],
-          ['LPG', `${Math.round(state.tanks.lpg)} / ${state.tankCapacity}L`, state.tanks.lpg < state.tankCapacity * 0.15 ? 'bad' : ''],
+          [t('Benzin'), `${Math.round(state.tanks.benzin)} / ${state.tankCapacity}L`, state.tanks.benzin < state.tankCapacity * 0.15 ? 'bad' : ''],
+          [t('Dizel'), `${Math.round(state.tanks.dizel)} / ${state.tankCapacity}L`, state.tanks.dizel < state.tankCapacity * 0.15 ? 'bad' : ''],
+          [t('LPG'), `${Math.round(state.tanks.lpg)} / ${state.tankCapacity}L`, state.tanks.lpg < state.tankCapacity * 0.15 ? 'bad' : ''],
           ['Kapasite seviyesi', `${state.tankLevel + 1}/4 (maks ${TANK_CAPACITY[3]}L)`],
         ],
       }
     case 'battery':
       return {
         icon: 'i-batt', name: 'Batarya Deposu',
-        desc: 'Santrallerin ürettiği elektriği biriktirir. Elektrikli araçlar buradan anında şarj alır.',
+        desc: t('Santrallerin ürettiği elektriği biriktirir. Elektrikli araçlar buradan anında şarj alır.'),
         stats: [
-          ['Dolu', `${Math.floor(state.battery)} / ${state.batteryCapacity} kWh`],
-          ['Üretim', `+${state.genRate().toFixed(1)} kWh/sn (şebeke dahil)`, 'good'],
-          ['Şebeke maliyeti', `₺${GRID_COST_PER_KWH}/kWh`, 'bad'],
-          ['Araca akış', `${[0, 15, 25, 40][state.batteryLevel]} kWh/sn`],
-          ['Üretim', `+${rate.toFixed(1)} kWh/sn`, rate > 0 ? 'good' : ''],
-          ['Seviye', `${state.batteryLevel}/3`],
+          [t('Dolu'), `${Math.floor(state.battery)} / ${state.batteryCapacity} kWh`],
+          [t('Üretim'), t('+{0} kWh/sn (şebeke dahil)', state.genRate().toFixed(1)), 'good'],
+          [t('Şebeke maliyeti'), `₺${GRID_COST_PER_KWH}/kWh`, 'bad'],
+          [t('Araca akış'), `${[0, 15, 25, 40][state.batteryLevel]} kWh/sn`],
+          [t('Üretim'), `+${rate.toFixed(1)} kWh/sn`, rate > 0 ? 'good' : ''],
+          [t('Seviye'), `${state.batteryLevel}/3`],
         ],
       }
     case 'market':
       return {
         icon: 'i-market', name: `Market Sv.${state.marketLevel}`,
-        desc: 'Müşterilerin bir kısmı içeri girip alışveriş yapar — ekstra gelir ve memnuniyet.',
+        desc: t('Müşterilerin bir kısmı içeri girip alışveriş yapar — ekstra gelir ve memnuniyet.'),
         stats: [
-          ['Müşteri harcaması', `₺${25 * state.marketLevel}-${60 * state.marketLevel}`],
-          ['Uğrama oranı', '~%35'],
+          [t('Müşteri harcaması'), `₺${25 * state.marketLevel}-${60 * state.marketLevel}`],
+          [t('Uğrama oranı'), '~%35'],
         ],
       }
     case 'toilet':
       return {
         icon: 'i-toilet', name: `Tuvalet Sv.${state.toiletLevel}`,
-        desc: 'Yol yorgunları için. Ücret koyarsan gelir gelir ama memnuniyet biraz düşer.',
+        desc: t('Yol yorgunları için. Ücret koyarsan gelir gelir ama memnuniyet biraz düşer.'),
         stats: [
           ['Moral etkisi', `+${Math.max(0, 0.15 * state.toiletLevel - (state.toiletFee > 0 ? 0.03 + state.toiletFee * 0.012 : 0)).toFixed(2)} puan`, 'good'],
-          ['Kullanım ücreti', state.toiletFee === 0 ? 'Ücretsiz' : `₺${state.toiletFee}`, state.toiletFee > 0 ? 'good' : ''],
+          [t('Kullanım ücreti'), state.toiletFee === 0 ? t('Ücretsiz') : `₺${state.toiletFee}`, state.toiletFee > 0 ? 'good' : ''],
         ],
-        action: { label: `Ücreti Değiştir (${state.toiletFee === 0 ? 'Ücretsiz' : '₺' + state.toiletFee} → ${state.toiletFee === 0 ? '₺5' : state.toiletFee === 5 ? '₺10' : 'Ücretsiz'})`, maintId: 'toilet-fee' },
+        action: { label: t('Ücreti Değiştir ({0} → {1})', state.toiletFee === 0 ? t('Ücretsiz') : '₺' + state.toiletFee, state.toiletFee === 0 ? '₺5' : state.toiletFee === 5 ? '₺10' : t('Ücretsiz')), maintId: 'toilet-fee' },
       }
     case 'solar': {
       const net = 3 * (1 - 0.7 * state.solarDirt) * (state.gridLevel >= 2 ? 1.3 : 1)
       return {
-        icon: 'i-solar', name: 'Güneş Santrali',
-        desc: 'Bedava elektrik üretir ama paneller kirlendikçe verim düşer. Ara sıra temizlik yaptır.',
+        icon: 'i-solar', name: t('Güneş Santrali'),
+        desc: t('Bedava elektrik üretir ama paneller kirlendikçe verim düşer. Ara sıra temizlik yaptır.'),
         stats: [
-          ['Üretim', `+${net.toFixed(1)} kWh/sn`, net < 1 ? 'bad' : 'good'],
-          ['Kirlilik', `%${Math.round(state.solarDirt * 100)}`, state.solarDirt > 0.6 ? 'bad' : ''],
+          [t('Üretim'), `+${net.toFixed(1)} kWh/sn`, net < 1 ? 'bad' : 'good'],
+          [t('Kirlilik'), `%${Math.round(state.solarDirt * 100)}`, state.solarDirt > 0.6 ? 'bad' : ''],
         ],
         action: state.solarDirt >= 0.15 ? { label: '🧽 Temizle — ₺300', maintId: 'clean-solar' } : undefined,
       }
     }
     case 'dieselgen':
       return {
-        icon: 'i-gen', name: 'Dizel Jeneratör',
-        desc: 'Tanktan mazot yakarak elektrik üretir. Çalışırken gürültüsü şarjdaki müşterileri rahatsız eder.',
+        icon: 'i-gen', name: t('Dizel Jeneratör'),
+        desc: t('Tanktan mazot yakarak elektrik üretir. Çalışırken gürültüsü şarjdaki müşterileri rahatsız eder.'),
         stats: [
-          ['Üretim', `+7 kWh/sn`],
-          ['Yakıt tüketimi', '0.25 L/sn'],
-          ['Durum', state.dieselRunning() ? 'ÇALIŞIYOR 🔊' : 'Beklemede', state.dieselRunning() ? 'bad' : 'good'],
+          [t('Üretim'), `+7 kWh/sn`],
+          [t('Yakıt tüketimi'), '0.25 L/sn'],
+          [t('Durum'), state.dieselRunning() ? t('ÇALIŞIYOR 🔊') : 'Beklemede', state.dieselRunning() ? 'bad' : 'good'],
         ],
       }
     case 'wash':
       return {
-        icon: 'i-wash', name: 'Oto Yıkama',
-        desc: 'Yakıt alan müşterilerin bir kısmı çıkışta aracını yıkatır.',
+        icon: 'i-wash', name: t('Oto Yıkama'),
+        desc: t('Yakıt alan müşterilerin bir kısmı çıkışta aracını yıkatır.'),
         stats: [
-          ['Hizmet ücreti', '₺60-120'],
-          ['Kullanım oranı', '~%25'],
+          [t('Hizmet ücreti'), '₺60-120'],
+          [t('Kullanım oranı'), '~%25'],
         ],
       }
     case 'coffee':
       return {
-        icon: 'i-coffee', name: 'Kahveci',
-        desc: 'Park eden müşteriler kahve molası verir.',
-        stats: [['Satış', '₺20-45'], ['Uğrama oranı', '~%30']],
+        icon: 'i-coffee', name: t('Kahveci'),
+        desc: t('Park eden müşteriler kahve molası verir.'),
+        stats: [[t('Satış'), '₺20-45'], [t('Uğrama oranı'), '~%30']],
       }
     case 'restaurant':
       return {
-        icon: 'i-food', name: 'Restoran',
-        desc: 'Uzun yol müşterisi park edip yemek yer — yüksek hesap öder.',
-        stats: [['Hesap', '₺80-160'], ['Uğrama oranı', '~%18']],
+        icon: 'i-food', name: t('Restoran'),
+        desc: t('Uzun yol müşterisi park edip yemek yer — yüksek hesap öder.'),
+        stats: [['Hesap', '₺80-160'], [t('Uğrama oranı'), '~%18']],
       }
     case 'truckpark':
       return {
-        icon: 'i-truck', name: 'Tır Parkı',
-        desc: 'Tırcılar konaklar; sen hiçbir şey yapmadan düzenli gelir akar.',
+        icon: 'i-truck', name: t('Tır Parkı'),
+        desc: t('Tırcılar konaklar; sen hiçbir şey yapmadan düzenli gelir akar.'),
         stats: [['Pasif gelir', '₺90-160 / ~45sn'], ['Trafik etkisi', '+%2']],
       }
     case 'airwater':
       return {
-        icon: 'i-air', name: 'Hava-Su Ünitesi',
-        desc: 'Lastik havası ve su. Küçük gelir ama müşteri çeker.',
-        stats: [['Hizmet', '₺10-20'], ['Kullanım', '~%20']],
+        icon: 'i-air', name: t('Hava-Su Ünitesi'),
+        desc: t('Lastik havası ve su. Küçük gelir ama müşteri çeker.'),
+        stats: [['Hizmet', '₺10-20'], [t('Kullanım'), '~%20']],
       }
     case 'selfwash':
       return {
-        icon: 'i-selfwash', name: 'Self Yıkama',
-        desc: 'Araçlar bölmelere girip kendileri yıkar; köpük ve su otomatik satılır.',
+        icon: 'i-selfwash', name: t('Self Yıkama'),
+        desc: t('Araçlar bölmelere girip kendileri yıkar; köpük ve su otomatik satılır.'),
         stats: [['Pasif gelir', '₺30-60 / ~35sn'], ['Trafik etkisi', '+%2']],
       }
     case 'parking':
       return {
-        icon: 'i-parking', name: 'Otopark',
-        desc: 'Servisi biten müşteriler buraya park edip market, tuvalet, kahveci ve restoranı gezer.',
-        stats: [['Kapasite', '4 araç'], ['Doluluk', `${cars.cars.filter(c => c.phase === 'parked' || c.phase === 'toPark').length}/4`]],
+        icon: 'i-parking', name: t('Otopark'),
+        desc: t('Servisi biten müşteriler buraya park edip market, tuvalet, kahveci ve restoranı gezer.'),
+        stats: [['Kapasite', t('4 araç')], ['Doluluk', `${cars.cars.filter(c => c.phase === 'parked' || c.phase === 'toPark').length}/4`]],
       }
     case 'oil':
       return {
-        icon: 'i-oil', name: 'Yağ Değişimi',
-        desc: 'Bakım vakti gelen araçlar burada yağ değiştirir — en kârlı yan hizmet.',
+        icon: 'i-oil', name: t('Yağ Değişimi'),
+        desc: t('Bakım vakti gelen araçlar burada yağ değiştirir — en kârlı yan hizmet.'),
         stats: [
-          ['Hizmet ücreti', '₺150-250'],
-          ['Kullanım oranı', '~%12'],
+          [t('Hizmet ücreti'), '₺150-250'],
+          [t('Kullanım oranı'), '~%12'],
         ],
       }
     case 'smr': {
-      const risk = state.smrWear > 0.7 ? 'YÜKSEK ☠️' : state.smrWear > 0.5 ? 'Orta' : 'Düşük'
+      const risk = state.smrWear > 0.7 ? t('YÜKSEK ☠️') : state.smrWear > 0.5 ? 'Orta' : t('Düşük')
       const producing = state.uranium > 0
       let action: BuildingCard['action']
-      if (state.smrWear >= 0.5) action = { label: '☢️ Bakım Yap — ₺1.500', maintId: 'maint-smr' }
-      else if (!state.uraniumPending && state.uranium <= 60) action = { label: `🟢 Uranyum Sipariş Et — ₺${URANIUM_COST.toLocaleString('tr-TR')}`, maintId: 'order-uranium' }
-      else if (state.smrWear >= 0.1) action = { label: '☢️ Bakım Yap — ₺1.500', maintId: 'maint-smr' }
+      if (state.smrWear >= 0.5) action = { label: t('☢️ Bakım Yap — ₺1.500'), maintId: 'maint-smr' }
+      else if (!state.uraniumPending && state.uranium <= 60) action = { label: t('🟢 Uranyum Sipariş Et — ₺{0}', URANIUM_COST.toLocaleString('tr-TR')), maintId: 'order-uranium' }
+      else if (state.smrWear >= 0.1) action = { label: t('☢️ Bakım Yap — ₺1.500'), maintId: 'maint-smr' }
       return {
-        icon: 'i-reactor', name: 'Modüler Reaktör',
-        desc: 'En güçlü enerji kaynağı. Uranyumla çalışır, yıprandıkça patlama riski artar — bakımı ASLA aksatma.',
+        icon: 'i-reactor', name: t('Modüler Reaktör'),
+        desc: t('En güçlü enerji kaynağı. Uranyumla çalışır, yıprandıkça patlama riski artar — bakımı ASLA aksatma.'),
         stats: [
-          ['Üretim', producing ? `+${(15 * (state.gridLevel >= 2 ? 1.3 : 1)).toFixed(1)} kWh/sn` : 'DURDU (uranyum yok)', producing ? 'good' : 'bad'],
+          [t('Üretim'), producing ? `+${(15 * (state.gridLevel >= 2 ? 1.3 : 1)).toFixed(1)} kWh/sn` : 'DURDU (uranyum yok)', producing ? 'good' : 'bad'],
           ['Uranyum', state.uraniumPending ? `Yolda (${Math.ceil(state.uraniumEta)}sn)` : `%${Math.round(state.uranium)}`, state.uranium <= 20 && !state.uraniumPending ? 'bad' : ''],
-          ['Yıpranma', `%${Math.round(state.smrWear * 100)}`, state.smrWear > 0.5 ? 'bad' : ''],
+          [t('Yıpranma'), `%${Math.round(state.smrWear * 100)}`, state.smrWear > 0.5 ? 'bad' : ''],
           ['Patlama riski', risk, state.smrWear > 0.7 ? 'bad' : state.smrWear > 0.5 ? '' : 'good'],
         ],
         action,
@@ -1693,7 +1693,7 @@ function refreshBuildingCard() {
   if (!card) return
   const facId = selectedBuilding.split('#')[0]
   if (['market', 'toilet', 'wash', 'oil', 'coffee', 'restaurant', 'truckpark', 'selfwash', 'airwater'].includes(facId)) {
-    card.stats.push(['Bugünkü ciro', `₺${Math.round(state.facDaily[facId] ?? 0).toLocaleString('tr-TR')}`, 'good'])
+    card.stats.push([t('Bugünkü ciro'), `₺${Math.round(state.facDaily[facId] ?? 0).toLocaleString('tr-TR')}`, 'good'])
   }
   // karttan doğrudan yükseltme: ilgili mağaza kalemi alınabilir durumdaysa buton koy
   const shopId = selectedBuilding.startsWith('pump-') ? 'pump'
@@ -1751,8 +1751,8 @@ editBtn.addEventListener('click', () => {
   editBtn.classList.toggle('danger', editMode)
   cancelPlacement()
   ui.toast(editMode
-    ? 'Düzenleme modu AÇIK: taşımak istediğin binaya tıkla (pompa, şarj ve tank sabittir)'
-    : 'Düzenleme modu kapandı.', '')
+    ? t('Düzenleme modu AÇIK: taşımak istediğin binaya tıkla (pompa, şarj ve tank sabittir)')
+    : t('Düzenleme modu kapandı.'), '')
 })
 
 // ---- Girdi: sürükle-kaydır + tıkla-seç ----
@@ -1853,14 +1853,14 @@ window.addEventListener('pointerup', e => {
       else if (zoneMode.kind === 'land') {
         const { c, r } = zoneMode
         const cost = parcelCost(c, r, state)
-        ui.toast(c < 0 ? 'Bir parsele tıkla.'
+        ui.toast(c < 0 ? t('Bir parsele tıkla.')
           : state.owns(c, r) ? 'Bu arsa zaten senin.'
-          : !state.parcelAdjacentToOwned(c, r) ? 'Bitişik değil — önce aradaki arsayı almalısın.'
+          : !state.parcelAdjacentToOwned(c, r) ? t('Bitişik değil — önce aradaki arsayı almalısın.')
           : `Para yetmiyor: bu arsa ₺${cost.toLocaleString('tr-TR')}, kasada ₺${Math.floor(state.money).toLocaleString('tr-TR')} var.`, 'bad')
       } else {
         const { c, r } = zoneMode
-        ui.toast(c < 0 ? 'Bir parsele tıkla.'
-          : !state.owns(c, r) ? 'Bu arsa senin değil — önce satın al.'
+        ui.toast(c < 0 ? t('Bir parsele tıkla.')
+          : !state.owns(c, r) ? t('Bu arsa senin değil — önce satın al.')
           : state.isPaved(c, r) ? 'Bu arsa zaten betonlu.'
           : `Para yetmiyor: beton ₺${PAVE_COST.toLocaleString('tr-TR')}.`, 'bad')
       }
@@ -1892,7 +1892,7 @@ function handleClick(e: PointerEvent) {
       const amt = state.collectPending(cashFor)
       if (amt > 0) {
         audio.cash()
-        ui.toast(`+₺${amt} toplandı!`, 'good', true)
+        ui.toast(t('+₺{0} toplandı!', amt), 'good', true)
         persist()
       }
       return
@@ -1947,12 +1947,12 @@ function frame() {
   cars.update(dt)
 
   for (const msg of state.events.splice(0)) {
-    if (msg.includes('Başarım')) {
+    if (msg.includes(t('Başarım'))) {
       ui.toast(msg, 'good', true)
       audio.achieve()
     } else {
       ui.toast(msg, 'bad')
-      if (msg.includes('KRİTİK') || msg.includes('doldu')) notifyIfHidden(msg)
+      if (msg.includes(t('KRİTİK')) || msg.includes('doldu')) notifyIfHidden(msg)
     }
   }
 
@@ -1970,7 +1970,7 @@ function frame() {
   if (cycleT < prevCycleT) {
     state.day++
     const profit = Math.round(state.money - state.dayStartMoney)
-    ui.toast(`📅 Gün ${state.day - 1} bitti — ${profit >= 0 ? 'kâr' : 'zarar'}: ₺${Math.abs(profit).toLocaleString('tr-TR')}`, profit >= 0 ? 'good' : 'bad')
+    ui.toast(t('📅 Gün {0} bitti — {1}: ₺{2}', state.day - 1, profit >= 0 ? t('kâr') : t('zarar'), Math.abs(profit).toLocaleString('tr-TR')), profit >= 0 ? 'good' : 'bad')
     state.dayStartMoney = state.money
     state.facDaily = {}
     if (state.day >= 3 && !isFullMode && !isPromoMode) interstitial('gun-sonu')
@@ -1992,14 +1992,14 @@ function frame() {
 
   // bina uyarı etiketleri
   const warns = new Map<string, { text: string; maintId: string }>()
-  state.brokenPumps.forEach(i => warns.set(`pump-${i}`, { text: '🔧 ARIZA · TAMİR ₺800', maintId: `fix-pump-${i}` }))
-  state.brokenChargers.forEach(i => warns.set(`charger-${i}`, { text: '🔧 ARIZA · TAMİR ₺1.000', maintId: `fix-charger-${i}` }))
-  if (state.hasSolar && state.solarDirt >= 0.6) warns.set('solar', { text: '🧽 TEMİZLİK ₺300', maintId: 'clean-solar' })
+  state.brokenPumps.forEach(i => warns.set(`pump-${i}`, { text: t('🔧 ARIZA · TAMİR ₺800'), maintId: `fix-pump-${i}` }))
+  state.brokenChargers.forEach(i => warns.set(`charger-${i}`, { text: t('🔧 ARIZA · TAMİR ₺1.000'), maintId: `fix-charger-${i}` }))
+  if (state.hasSolar && state.solarDirt >= 0.6) warns.set('solar', { text: t('🧽 TEMİZLİK ₺300'), maintId: 'clean-solar' })
   if (state.hasSMR && state.smrWear >= 0.5) {
-    warns.set('smr', { text: state.smrWear > 0.75 ? '🚨 BAKIM ŞART ₺1.500' : '☢️ BAKIM ₺1.500', maintId: 'maint-smr' })
+    warns.set('smr', { text: state.smrWear > 0.75 ? t('🚨 BAKIM ŞART ₺1.500') : '☢️ BAKIM ₺1.500', maintId: 'maint-smr' })
   } else if (state.hasSMR && state.uranium <= 15 && !state.uraniumPending) {
     warns.set('smr', {
-      text: state.uranium === 0 ? '🚨 URANYUM BİTTİ · ₺2.500' : '🟢 URANYUM AZ · ₺2.500',
+      text: state.uranium === 0 ? t('🚨 URANYUM BİTTİ · ₺2.500') : '🟢 URANYUM AZ · ₺2.500',
       maintId: 'order-uranium',
     })
   }
@@ -2090,7 +2090,7 @@ function frame() {
     if (c.phase === 'atPump' && c.kind === 'fuel') c.beingServed = c.filling || !!c.nozzle
     if (!(c.filling && c.kind === 'fuel' && c.phase === 'atPump' && c.nozzle && !c.wrongFuelHandled)) continue
     if (state.tanks[c.nozzle] <= 0) {
-      ui.toast(`${FUEL_LABEL[c.nozzle]} tankı boş kaldı! Satış yarım kaldı — sipariş ver.`, 'bad')
+      ui.toast(t('{0} tankı boş kaldı! Satış yarım kaldı — sipariş ver.', t(FUEL_LABEL[c.nozzle])), 'bad')
       finishSale(c)
       continue
     }
@@ -2179,23 +2179,23 @@ if (isPromoMode) {
     try { audio.build() } catch { /* ses yoksa sessiz geç */ }
   }
   const beats: [number, () => void][] = [
-    [1.0, () => say('KENDİ BENZİNLİĞİNİ KUR')],
-    [6.0, () => say('YAKIT SATMAYA BAŞLA')],
-    [13, () => { say('BÜYÜ VE GELİŞ'); buy('pump') }],
+    [1.0, () => say(t('KENDİ BENZİNLİĞİNİ KUR'))],
+    [6.0, () => say(t('YAKIT SATMAYA BAŞLA'))],
+    [13, () => { say(t('BÜYÜ VE GELİŞ')); buy('pump') }],
     [15, () => buy('pump')],
     [17, () => { buy('pump'); buy('sign') }],
     [19, () => { buy('sign'); buy('tank') }],
-    [21.5, () => { say('MARKETİNİ AÇ, MÜŞTERİYİ TUT'); buy('market'); buy('toilet') }],
+    [21.5, () => { say(t('MARKETİNİ AÇ, MÜŞTERİYİ TUT')); buy('market'); buy('toilet') }],
     [24, () => { buy('wash'); buy('coffee') }],
     [26.5, () => buy('market')],
-    [29, () => { say('ELEKTRİĞE GEÇ'); buy('grid'); buy('battery') }],
+    [29, () => { say(t('ELEKTRİĞE GEÇ')); buy('grid'); buy('battery') }],
     [31.5, () => { buy('evcharger'); buy('evcharger') }],
     [34, () => { buy('grid'); buy('evcharger') }],
-    [37, () => { say('GÜNEŞ PANELLERİNİ KUR'); buy('solar') }],
+    [37, () => { say(t('GÜNEŞ PANELLERİNİ KUR')); buy('solar') }],
     [40, () => { buy('airwater'); buy('selfwash') }],
-    [43, () => { say('NÜKLEER ÇAĞA ADIM AT'); buy('smr') }],
-    [49, () => say('KENDİ PETROL İSTASYONUNU İŞLET')],
-    [55, () => say('<span style="color:#ffd24d">ŞİMDİ OYNA</span>')],
+    [43, () => { say(t('NÜKLEER ÇAĞA ADIM AT')); buy('smr') }],
+    [49, () => say(t('KENDİ PETROL İSTASYONUNU İŞLET'))],
+    [55, () => say(`<span style="color:#ffd24d">${t('ŞİMDİ OYNA')}</span>`)],
   ]
   let bi = 0
   let pt = 0

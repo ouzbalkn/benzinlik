@@ -1,4 +1,5 @@
 import { Car } from './cars'
+import { t } from './i18n'
 import { FuelType, FUELS, FUEL_LABEL, GameState, getShopItems, getMaintenanceItems } from './state'
 import { audio } from './audio'
 import * as auth from './auth'
@@ -213,20 +214,20 @@ export class UI {
         el<HTMLDivElement>('fbwrap').classList.remove('show')
         this.toast('Bildirimin alındı — teşekkürler, okuyoruz!', 'good')
       } catch (e) {
-        this.toast((e as Error).message || 'Gönderilemedi, tekrar dene.', 'bad')
+        this.toast((e as Error).message || t('Gönderilemedi, tekrar dene.'), 'bad')
       }
       btn.disabled = false
     })
     el<HTMLButtonElement>('resetbtn').addEventListener('click', () => {
-      if (confirm('Tüm ilerleme silinecek. Emin misin?')) this.onReset()
+      if (confirm(t('Tüm ilerleme silinecek. Emin misin?'))) this.onReset()
     })
 
     // ses ayarları
     const musicBtn = el<HTMLButtonElement>('musicbtn')
     const sfxBtn = el<HTMLButtonElement>('sfxbtn')
     const syncAudioLabels = () => {
-      musicBtn.textContent = `Müzik: ${audio.musicOn ? 'Açık' : 'Kapalı'}`
-      sfxBtn.textContent = `Efektler: ${audio.sfxOn ? 'Açık' : 'Kapalı'}`
+      musicBtn.textContent = t('Müzik: {0}', audio.musicOn ? t('Açık') : t('Kapalı'))
+      sfxBtn.textContent = t('Efektler: {0}', audio.sfxOn ? t('Açık') : t('Kapalı'))
     }
     syncAudioLabels()
     musicBtn.addEventListener('click', () => { audio.toggleMusic(); syncAudioLabels() })
@@ -234,7 +235,7 @@ export class UI {
     const notifBtn = el<HTMLButtonElement>('notifbtn')
     const syncNotif = () => {
       const p = 'Notification' in window ? Notification.permission : 'unsupported'
-      notifBtn.textContent = p === 'granted' ? 'Bildirimler: Açık' : p === 'denied' ? 'Bildirimler: Engelli' : 'Bildirimlere İzin Ver'
+      notifBtn.textContent = p === 'granted' ? t('Bildirimler: Açık') : p === 'denied' ? 'Bildirimler: Engelli' : t('Bildirimlere İzin Ver')
       notifBtn.disabled = p === 'granted' || p === 'denied' || p === 'unsupported'
     }
     syncNotif()
@@ -343,31 +344,31 @@ export class UI {
     if (car.kind === 'ev') {
       this.fuelCtl.style.display = 'none'
       this.evCtl.style.display = 'block'
-      this.setHtml(this.demand, `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
-        `<span class="fpill" style="background:#1fa8bc">ELEKTRİK</span><span class="damt">${car.demandKwh} kWh</span>`)
+      this.setHtml(this.demand, `<span class="dlabel">${t('MÜŞTERİ İSTEĞİ')}</span>` +
+        `<span class="fpill" style="background:#1fa8bc">${t('ELEKTRİK')}</span><span class="damt">${car.demandKwh} kWh</span>`)
       const have = this.batteryKwh()
       this.chargeBtn.disabled = car.charging || car.squatting
       this.setText(this.chargeBtn, car.squatting
-        ? 'MOLADA — ünite işgal altında'
+        ? t('MOLADA — ünite işgal altında')
         : car.charging
-          ? `ŞARJ OLUYOR — ${Math.floor(car.chargedKwh)}/${car.demandKwh} kWh`
-          : `ŞARJ BAŞLAT (${car.demandKwh} kWh)`)
+          ? t('ŞARJ OLUYOR — {0}/{1} kWh', Math.floor(car.chargedKwh), car.demandKwh)
+          : t('ŞARJ BAŞLAT ({0} kWh)', car.demandKwh))
       this.setText(this.evNote, car.squatting
-        ? 'Şarj bitti ama müşteri tesislerde geziyor — MÜŞTERİYİ GÖNDER ile uğurla, yoksa yeni EV müşterileri kaçar!'
+        ? t('Şarj bitti ama müşteri tesislerde geziyor — MÜŞTERİYİ GÖNDER ile uğurla, yoksa yeni EV müşterileri kaçar!')
         : car.charging
-          ? 'Depodan araca enerji akıyor... depo seviyesi akış hızını belirler.'
+          ? t('Depodan araca enerji akıyor... depo seviyesi akış hızını belirler.')
           : have < 1
-            ? `Bataryada enerji yok (${Math.floor(have)} kWh) — dolmasını bekle.`
-            : `Depoda ${Math.floor(have)} kWh hazır — şarjı başlat.`)
+            ? t('Bataryada enerji yok ({0} kWh) — dolmasını bekle.', Math.floor(have))
+            : t('Depoda {0} kWh hazır — şarjı başlat.', Math.floor(have)))
       return
     }
 
     this.fuelCtl.style.display = 'block'
     this.evCtl.style.display = 'none'
     const fc = car.demandType === 'benzin' ? '#27a05a' : car.demandType === 'dizel' ? '#e8862e' : '#2f6fed'
-    this.setHtml(this.demand, `<span class="dlabel">MÜŞTERİ İSTEĞİ</span>` +
+    this.setHtml(this.demand, `<span class="dlabel">${t('MÜŞTERİ İSTEĞİ')}</span>` +
       `<span class="fpill" style="background:${fc}">${FUEL_LABEL[car.demandType]}</span>` +
-      `<span class="damt">${car.wantsFull ? 'FULLE' : `₺${car.demandAmount}`}</span>`)
+      `<span class="damt">${car.wantsFull ? t('FULLE') : `₺${car.demandAmount}`}</span>`)
     this.nozBenzin.classList.toggle('sel', car.nozzle === 'benzin')
     this.nozDizel.classList.toggle('sel', car.nozzle === 'dizel')
     this.nozLpg.classList.toggle('sel', car.nozzle === 'lpg')
@@ -381,8 +382,8 @@ export class UI {
     el<HTMLButtonElement>('fullbtn').disabled = !car.nozzle || car.filling || car.filled > 0
     if (!car.filling && car.filled === 0)
       this.setText(this.progress, car.wantsFull
-        ? 'Müşteri FULLE istiyor — tabancayı seç, FULLE bas'
-        : 'Tabanca seç; tutar gir ya da FULLE')
+        ? t('Müşteri FULLE istiyor — tabancayı seç, FULLE bas')
+        : t('Tabanca seç; tutar gir ya da FULLE'))
   }
 
   // ---- bina bilgi kartı ----
@@ -432,8 +433,8 @@ export class UI {
   syncAccount(email: string | null) {
     this.accountEmail = email
     el<HTMLDivElement>('accstatus').textContent = email
-      ? `Giriş yapıldı: ${email} — kaydın buluta senkronlanıyor.`
-      : 'Giriş gerekli — oturum kapandı, sayfayı yenile.'
+      ? t('Giriş yapıldı: {0} — kaydın buluta senkronlanıyor.', email)
+      : t('Giriş gerekli — oturum kapandı, sayfayı yenile.')
     el<HTMLInputElement>('accemail').style.display = email ? 'none' : 'block'
     el<HTMLInputElement>('accpass').style.display = email ? 'none' : 'block'
     el<HTMLButtonElement>('loginbtn').style.display = email ? 'none' : 'flex'
@@ -457,7 +458,7 @@ export class UI {
     if (this.shopCat === 'bakim') {
       const maint = getMaintenanceItems(state)
       this.shopList.innerHTML = maint.length === 0
-        ? `<div class="sd" style="text-align:center; padding:18px 0">Her şey yolunda — bakım gereken bir şey yok.</div>`
+        ? `<div class="sd" style="text-align:center; padding:18px 0">${t('Her şey yolunda')} — bakım gereken bir şey yok.</div>`
         : maint.map(r => {
           const cls = r.urgent ? 'shoprow urgent' : 'shoprow'
           const disabled = r.disabled || state.money < r.cost
@@ -473,7 +474,7 @@ export class UI {
       const cls = r.status === 'maxed' ? 'card maxed' : r.status === 'locked' ? 'card locked' : 'card'
       let btn: string
       if (r.status === 'maxed') btn = `<button class="btn cbuy" disabled>MAKS</button>`
-      else if (r.status === 'locked') btn = `<button class="btn cbuy" disabled>KİLİTLİ</button>`
+      else if (r.status === 'locked') btn = `<button class="btn cbuy" disabled>${t('KİLİTLİ')}</button>`
       else {
         const afford = state.money >= (r.cost ?? 0)
         btn = `<button class="btn cbuy ${afford ? 'good' : ''}" data-buy="${r.id}" ${afford ? '' : 'disabled'}>₺${r.cost?.toLocaleString('tr-TR')}</button>`
@@ -507,8 +508,8 @@ export class UI {
         `<div class="trow">${icon('i-truck')} <span>${t}</span></div>`).join('')
     }
     this.setText(el<HTMLDivElement>('acc-email'), this.accountEmail ?? '—')
-    this.setText(el<HTMLDivElement>('acc-streak'), `Giriş serisi: ${state.loginStreak} gün · Oyun günü: ${state.day}`)
-    this.setText(el<HTMLDivElement>('acc-ach'), `Başarımlar: ${state.achievements.size}/8 · Görev: ${state.dailyDone ? 'tamamlandı' : state.dailyServed + '/15'}`)
+    this.setText(el<HTMLDivElement>('acc-streak'), t('Giriş serisi: {0} gün · Oyun günü: {1}', state.loginStreak, state.day))
+    this.setText(el<HTMLDivElement>('acc-ach'), t('Başarımlar: {0}/8 · Görev: {1}', state.achievements.size, state.dailyDone ? t('tamamlandı') : state.dailyServed + '/15'))
 
     // yakıt türü başına tank barları + sipariş modalı satırları
     let anyLow = false
@@ -522,12 +523,12 @@ export class UI {
       const btn = el<HTMLButtonElement>(`fbtn-${f}`)
       const info = el<HTMLDivElement>(`fneed-${f}`)
       if (o.pending || o.delivering) {
-        this.setText(info, o.delivering ? 'Tanker istasyona yaklaşıyor…' : `Tanker yolda — ${Math.ceil(o.eta)} sn`)
-        this.setText(btn, 'Yolda')
+        this.setText(info, o.delivering ? t('Tanker istasyona yaklaşıyor…') : `Tanker yolda — ${Math.ceil(o.eta)} sn`)
+        this.setText(btn, t('Yolda'))
         btn.disabled = true
       } else if (need < 100) {
-        this.setText(info, 'Tank dolu')
-        this.setText(btn, 'Dolu')
+        this.setText(info, t('Tank dolu'))
+        this.setText(btn, t('Dolu'))
         btn.disabled = true
       } else {
         this.setText(info, `${Math.round(state.tanks[f])} / ${state.tankCapacity}L — ${need}L eksik`)
@@ -536,7 +537,7 @@ export class UI {
       }
     }
 
-    this.setText(this.closeLabel, state.closed ? 'KAPALI' : 'Açık')
+    this.setText(this.closeLabel, state.closed ? t('KAPALI') : t('Açık'))
 
     if (state.batteryLevel > 0) {
       this.setDisp(this.battChip, 'flex')
