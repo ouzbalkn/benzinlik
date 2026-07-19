@@ -42,6 +42,7 @@ async function initDb() {
   await pool.query(`ALTER TABLE benzinlik_player ADD COLUMN IF NOT EXISTS sessions int NOT NULL DEFAULT 0`)
   await pool.query(`ALTER TABLE benzinlik_player ADD COLUMN IF NOT EXISTS banned_at timestamptz`)
   await pool.query(`ALTER TABLE benzinlik_player ADD COLUMN IF NOT EXISTS ban_reason text`)
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS benzinlik_player_email_lower ON benzinlik_player (lower(email))`)
   console.log('DB hazır (benzinlik_player + benzinlik_feedback).')
 }
 
@@ -178,9 +179,16 @@ async function handleApi(req, res, url) {
       const e = String(email || '').trim().toLowerCase()
       if (!/^\S+@\S+\.\S+$/.test(e)) return json(res, 400, { error: 'Geçerli bir e-posta gir.' })
       if (String(password || '').length < 4) return json(res, 400, { error: 'Şifre en az 4 karakter olmalı.' })
-      const exists = await pool.query('SELECT 1 FROM benzinlik_player WHERE email=$1', [e])
-      if (exists.rowCount > 0) return json(res, 409, { error: 'Bu e-posta zaten kayıtlı — giriş yap.' })
-      await pool.query('INSERT INTO benzinlik_player(email, pass) VALUES ($1, $2)', [e, hashPassword(String(password))])
+      // atomik: yarış durumunda bile aynı e-posta ikinci kez ASLA açılmaz
+      const ins = await pool.query(
+        `INSERT INTO benzinlik_player(email, pass) VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING RETURNING id`,
+        [e, hashPassword(String(password))],
+      ).catch(err => {
+        if (String(err.code) === '23505') return { rowCount: 0 }
+        throw err
+      })
+      if (!ins.rowCount) return json(res, 409, { error: 'Bu e-posta zaten kayıtlı — giriş yap.' })
       return json(res, 200, { token: sign(e), email: e })
     }
     if (url === '/api/login' && req.method === 'POST') {

@@ -154,7 +154,7 @@ ui.tankerStatus = () => {
   }
   return parts
 }
-const tankers: { t: Tanker; fuel: FuelType; slot: number }[] = []
+const tankers: { t: Tanker; fuel: FuelType; slot: number; age?: number; credited?: boolean }[] = []
 let evTurnAwayT = 0
 let exploding = false
 let selectedBuilding: string | null = null
@@ -2021,10 +2021,22 @@ function frame() {
     return false
   }
   for (let i = tankers.length - 1; i >= 0; i--) {
-    const { t, fuel } = tankers[i]
-    if (t.update(dt, blockedFor(t))) {
+    const tk = tankers[i]
+    const { t, fuel } = tk
+    tk.age = (tk.age ?? 0) + dt
+    if (t.update(dt, blockedFor(t)) && !tk.credited) {
+      tk.credited = true
       state.deliverFuel(fuel)
       ui.toast(`${FUEL_LABEL[fuel]} tankı dolduruldu!`, 'good')
+    }
+    // teslimat sigortası: trafik tıkarsa bile 75 sn'de yakıt MUTLAKA teslim edilir
+    if (!tk.credited && tk.age > 75) {
+      tk.credited = true
+      state.deliverFuel(fuel)
+      ui.toast(`${FUEL_LABEL[fuel]} teslimatı tamamlandı (tanker trafikte gecikti).`, 'good')
+      world.scene.remove(t.group)
+      tankers.splice(i, 1)
+      continue
     }
     if (t.done) {
       world.scene.remove(t.group)

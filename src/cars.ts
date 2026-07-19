@@ -221,6 +221,8 @@ export class Car {
   holdTime = 0
   watchT = 0
   watchPos = new THREE.Vector3()
+  hardStuckT = 0
+  prevFramePos = new THREE.Vector3(NaN, 0, 0)
   /** sıkışma kurtarma penceresi: bu süre boyunca hold yok sayılır */
   overrideT = 0
   private barsOn = false
@@ -681,6 +683,28 @@ export class CarManager {
     for (const [c, o] of blockers) {
       if (blockers.get(o) === c && c.hold && o.hold) o.hold = false
     }
+    // zincir döngüleri (A→B→C→A): döngüdeki EN UZUN bekleyen tek araç serbest kalır.
+    // İkisi birden değil — çift taraflı kaçış çarpışması bug'ının panzehiri.
+    const resolved = new Set<Car>()
+    for (const c of this.cars) {
+      if (!c.hold || resolved.has(c)) continue
+      const chainIdx = new Map<Car, number>()
+      const chain: Car[] = []
+      let cur: Car | undefined = c
+      while (cur && !chainIdx.has(cur) && chain.length < 10) {
+        chainIdx.set(cur, chain.length)
+        chain.push(cur)
+        cur = blockers.get(cur)
+      }
+      if (cur && chainIdx.has(cur)) {
+        const cycle = chain.slice(chainIdx.get(cur)!)
+        let winner = cycle[0]
+        for (const x of cycle) if (x.holdTime > winner.holdTime) winner = x
+        winner.hold = false
+        winner.overrideT = Math.max(winner.overrideT, 1.0)
+        for (const x of cycle) resolved.add(x)
+      }
+    }
     // uzun süre sıkışan araç kendini kurtarır (gridlock sigortası):
     // 5 sn beklerse 1.4 sn'lik gerçek bir kurtulma penceresi açılır
     for (const c of this.cars) {
@@ -750,6 +774,19 @@ export class CarManager {
         car.watchPos.copy(car.group.position)
       }
       car.update(dt)
+      // NİHAİ SİGORTA: hareket etmesi gereken araç 18 sn boyunca yerinden oynayamadıysa
+      // sessizce sahneden çekilir — trafik ne olursa olsun kalıcı kilitlenemez.
+      const movingPhase = car.phase === 'transit' || car.phase === 'driving'
+        || car.phase === 'leaving' || car.phase === 'toPark'
+      if (movingPhase) {
+        const d2 = isNaN(car.prevFramePos.x) ? 1 : car.group.position.distanceToSquared(car.prevFramePos)
+        if (d2 < 0.0006) car.hardStuckT += dt
+        else car.hardStuckT = Math.max(0, car.hardStuckT - dt * 3)
+        if (car.hardStuckT > 18) this.evaporate(car)
+      } else {
+        car.hardStuckT = 0
+      }
+      car.prevFramePos.copy(car.group.position)
       if ((car.phase === 'waiting' || car.phase === 'atPump') && car.patience <= 0 && !car.beingServed) {
         car.showFeedback('😡')
         this.releaseCar(car)
@@ -972,6 +1009,20 @@ export class CarManager {
       if (kind === 'ev' ? car.kind !== 'ev' : car.kind === 'ev') continue
       if (car.phase === 'driving' || car.phase === 'atPump') this.releaseCar(car)
     }
+  }
+
+  /** son çare: aracı sahneden sil, tuttuğu her yeri boşalt — hiçbir şey sonsuza dek tıkalı kalamaz */
+  private evaporate(car: Car) {
+    if (car.waitIndex >= 0) { this.waitOcc[car.waitIndex] = null; car.waitIndex = -1 }
+    if (car.truckSlot >= 0) { this.truckOcc[car.truckSlot] = null; car.truckSlot = -1 }
+    if (car.slotIndex >= 0) {
+      if (car.phase === 'parked' || car.phase === 'toPark') this.parkOcc[car.slotIndex] = null
+      else if (car.kind === 'ev') this.evOcc[car.slotIndex] = null
+      else this.pumpOcc[car.slotIndex] = null
+      car.slotIndex = -1
+    }
+    car.hideBubble()
+    car.dispose(this.scene)
   }
 
   /** 6 sn kıpırdayamayan aracı ayır, katıdan çıkar, rotasını tazele */
