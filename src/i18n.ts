@@ -335,6 +335,8 @@ const EN: Record<string, string> = {
   '🧼 Camları Temizle': '🧼 Clean Windows', '✨ Camlar Temiz': '✨ Windows Clean',
   'Ön cam pırıl pırıl — bahşiş şansı arttı! ✨': 'Windshield sparkling — bigger tip chance! ✨',
   'Temiz camlara bahşiş: +₺{0}': 'Clean-windows tip: +₺{0}',
+  'Tekrar hoş geldin patron! Dönüş hediyesi: +₺1.000 🎁': 'Welcome back, boss! Comeback gift: +₺1,000 🎁',
+  'Bakiye güncellendi': 'Balance updated', 'Kayıt güncellendi ✓': 'Save updated ✓', 'Güncelleme uygulanıyor…': 'Applying update…',
   'Buluta bağlanılamadı': "Couldn't connect to the cloud", 'Yenile': 'Refresh',
   'İlerlemeni korumak için oyun durduruldu. Kaydın güvende — hiçbir şey silinmedi. Bağlantı gelince yenile.': 'The game is paused to protect your progress. Your save is safe — nothing was deleted. Refresh once you are back online.',
   'MÜŞTERİ PATLAMASI! 90 saniye yoğun akın — pompalara koş!': 'CUSTOMER RUSH! 90 seconds of heavy traffic — hit the pumps!',

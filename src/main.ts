@@ -527,9 +527,10 @@ function finishSale(car: Car) {
 function wrongFuel(car: Car) {
   car.wrongFuelHandled = true
   car.filling = false
-  state.money -= WRONG_FUEL_PENALTY
+  const wfPenalty = state.graceActive ? 100 : WRONG_FUEL_PENALTY // grace: yeni oyuncu daha az cezalanır
+  state.money -= wfPenalty
   state.addRep(-0.4)
-  ui.toast(t('🚨 {0} isteyen araca {1} bastın! -{2} ₺', FUEL_LABEL[car.demandType], FUEL_LABEL[car.nozzle!], WRONG_FUEL_PENALTY), 'bad')
+  ui.toast(t('🚨 {0} isteyen araca {1} bastın! -{2} ₺', FUEL_LABEL[car.demandType], FUEL_LABEL[car.nozzle!], wfPenalty), 'bad')
   car.showFeedback('😡')
   cars.releaseCar(car)
   if (ui.activeCar === car) ui.selectCar(nextServableCar())
@@ -1369,12 +1370,19 @@ document.getElementById('authgate')?.remove()
   const today = new Date().toISOString().slice(0, 10)
   if (!isFullMode && state.lastLoginDate !== today) {
     const yest = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
-    state.loginStreak = state.lastLoginDate === yest ? state.loginStreak + 1 : 1
+    const continued = state.lastLoginDate === yest
+    const lapsed = !!state.lastLoginDate && !continued // önceden oynamış ama araya boşluk girmiş
+    state.loginStreak = continued ? state.loginStreak + 1 : 1
     state.lastLoginDate = today
     const bonus = 250 + 250 * Math.min(state.loginStreak, 7)
     state.money += bonus
     ui.toast(t('Günlük giriş bonusu: +₺{0} (seri: {1} gün)', bonus, state.loginStreak), 'good', true)
     audio.achieve()
+    // geri dönüş kancası: lapsed oyuncuya "seni özledik" bonusu (seriyi cezalandırmadan geri çeker)
+    if (lapsed) {
+      state.money += 1000
+      ui.toast(t('Tekrar hoş geldin patron! Dönüş hediyesi: +₺1.000 🎁'), 'good', true)
+    }
     state.dailyDate = today
     state.dailyServed = 0
     state.dailyDone = false
@@ -2037,7 +2045,15 @@ function frame() {
 
   if (state.exploded) {
     exploding = true
-    if (auth.loggedIn()) auth.pushSave(null).catch(() => {}) // her şey sıfırlanır (SQL'de)
+    // SİGORTA: artık TÜM save silinmiyor — sadece reaktör gider + ağır ceza.
+    // İstasyon ayakta kalır (rage-quit önleme). Riziko hâlâ ciddi: yarı kasa + itibar.
+    state.exploded = false
+    state.hasSMR = false
+    state.smrWear = 0
+    state.uranium = 0
+    state.money = Math.max(0, Math.round(state.money * 0.5))
+    state.addRep(-1)
+    if (auth.loggedIn()) auth.pushSave(savePayload()).catch(() => {}) // hayatta kalan durum (WIPE YOK)
     audio.boom()
     ui.showBoom()
     setTimeout(() => location.reload(), 3500)

@@ -324,7 +324,7 @@ export class GameState {
     this.maintCare = Math.max(0, this.maintCare - 0.0004 * dt)
 
     // rastgele arızalar — seyrek; para azken (Murphy) artar, bakım özeni yüksekken düşer
-    const stress = this.money < 1000 ? 3 : this.money < 3000 ? 2 : 1
+    const stress = this.graceActive ? 1 : this.money < 1000 ? 3 : this.money < 3000 ? 2 : 1
     const care = 1 - 0.65 * this.maintCare
     const brokenCount = this.brokenPumps.size + this.brokenChargers.size
     if (brokenCount < 2) {
@@ -420,8 +420,13 @@ export class GameState {
     return amt
   }
 
+  /** yeni oyuncu koruması: ilk 2 gün cezalar yumuşar (ilerleme HIZLANMAZ, sadece erken ölüm sarmalı kırılır) */
+  get graceActive() { return this.day <= 2 }
+
   addRep(d: number) {
-    this.reputation = Math.max(0, Math.min(5, this.reputation + d))
+    if (this.graceActive && d < 0) d *= 0.5 // grace: itibar cezaları yarı
+    const floor = this.graceActive ? 2.5 : 0 // grace: itibar 2.5 altına düşmez (trafik çökmesin)
+    this.reputation = Math.max(floor, Math.min(5, this.reputation + d))
   }
 }
 
