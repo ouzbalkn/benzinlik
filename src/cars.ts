@@ -219,6 +219,8 @@ export class Car {
   /** öndeki araca çok yaklaştıysa bu karede bekle (üst üste binme yok) */
   hold = false
   holdTime = 0
+  watchT = 0
+  watchPos = new THREE.Vector3()
   /** sıkışma kurtarma penceresi: bu süre boyunca hold yok sayılır */
   overrideT = 0
   private barsOn = false
@@ -685,6 +687,20 @@ export class CarManager {
       if (c.overrideT > 0) {
         c.overrideT -= dt
         c.hold = false
+        // kaçarken bile başka aracın gövdesine GİRME — bindirme bug'ının kökü buydu
+        const dir = c.headingDir()
+        if (dir) {
+          for (const o of this.cars) {
+            if (o === c || o.phase === 'gone') continue
+            const rel = new THREE.Vector3().subVectors(o.group.position, c.group.position)
+            rel.z = 0
+            const fwd = rel.dot(dir)
+            if (fwd > 0.1 && fwd < 1.1 && rel.addScaledVector(dir, -fwd).length() < 0.95) {
+              c.hold = true
+              break
+            }
+          }
+        }
         continue
       }
       if (c.hold) {
@@ -720,6 +736,18 @@ export class CarManager {
       if (car.truckSlot >= 0 && car.phase === 'parked') {
         car.stayT -= dt
         if (car.stayT <= 0) this.leaveTruckPark(car)
+      }
+      // sıkışma bekçisi: hareket etmesi gereken araç 6 sn'dir yerindeyse kurtar
+      if (car.phase === 'driving' || car.phase === 'toPark' || car.phase === 'leaving') {
+        car.watchT += dt
+        if (car.watchT >= 6) {
+          if (car.group.position.distanceTo(car.watchPos) < 0.35) this.recoverStuck(car)
+          car.watchPos.copy(car.group.position)
+          car.watchT = 0
+        }
+      } else {
+        car.watchT = 0
+        car.watchPos.copy(car.group.position)
       }
       car.update(dt)
       if ((car.phase === 'waiting' || car.phase === 'atPump') && car.patience <= 0 && !car.beingServed) {
@@ -943,6 +971,47 @@ export class CarManager {
       if (car.slotIndex !== i) continue
       if (kind === 'ev' ? car.kind !== 'ev' : car.kind === 'ev') continue
       if (car.phase === 'driving' || car.phase === 'atPump') this.releaseCar(car)
+    }
+  }
+
+  /** 6 sn kıpırdayamayan aracı ayır, katıdan çıkar, rotasını tazele */
+  private recoverStuck(car: Car) {
+    // üst üste binmiş araçları ayır
+    for (const o of this.cars) {
+      if (o === car || o.phase === 'gone') continue
+      const d = car.group.position.distanceTo(o.group.position)
+      if (d < 1.1) {
+        const away = new THREE.Vector3().subVectors(car.group.position, o.group.position)
+        away.z = 0
+        if (away.lengthSq() < 1e-4) away.set(0.6, 0.6, 0)
+        away.normalize()
+        car.group.position.addScaledVector(away, 1.25 - d / 2)
+      }
+    }
+    // katı cisme gömüldüyse en yakın kenardan dışarı it
+    for (const s of Car.solids) {
+      const dx = car.group.position.x - s.cx
+      const dy = car.group.position.y - s.cy
+      const px = s.w / 2 + 0.5 - Math.abs(dx)
+      const py = s.d / 2 + 0.5 - Math.abs(dy)
+      if (px > 0 && py > 0) {
+        if (px < py) car.group.position.x += Math.sign(dx || 1) * px
+        else car.group.position.y += Math.sign(dy || 1) * py
+      }
+    }
+    car.holdTime = 0
+    car.overrideT = 0
+    // hedefe göre temiz rota
+    if (car.phase === 'driving' && car.slotIndex >= 0 && car.kind !== 'ev') {
+      const slot = this.opts.pumpSlot(car.slotIndex)
+      car.setPath([new THREE.Vector3(3.2, slot.y - 2.5, 0), slot.clone()], () => this.arriveAtSlot(car))
+    } else if (car.phase === 'driving' && car.slotIndex >= 0 && car.kind === 'ev') {
+      const slot = this.opts.evSlot(car.slotIndex)
+      car.setPath([new THREE.Vector3(3.2, slot.y - 2.5, 0), slot.clone()], () => this.arriveAtSlot(car))
+    } else if (car.phase === 'toPark' && car.truckSlot >= 0) {
+      this.leaveTruckPark(car)
+    } else if (car.phase !== 'atPump' && car.phase !== 'parked' && car.phase !== 'waiting') {
+      this.releaseCar(car)
     }
   }
 
