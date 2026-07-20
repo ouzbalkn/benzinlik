@@ -753,7 +753,9 @@ async function handleVs(req, res, url) {
           count(*) FILTER (WHERE last_seen_at > now() - interval '5 min')::int AS active5m,
           count(*) FILTER (WHERE last_seen_at > now() - interval '1 hour')::int AS active1h,
           count(*) FILTER (WHERE last_seen_at > now() - interval '1 day')::int AS active1d,
-          count(*) FILTER (WHERE created_at > now() - interval '1 day')::int AS new1d
+          count(*) FILTER (WHERE created_at > now() - interval '1 day')::int AS new1d,
+          count(*) FILTER (WHERE email_verified)::int AS verified,
+          count(*) FILTER (WHERE NOT email_verified)::int AS unverified
         FROM benzinlik_player`)
       const w = await pool.query(`SELECT
         coalesce(sum(visits),0)::int AS v24, coalesce(sum(signups),0)::int AS s24, coalesce(sum(logins),0)::int AS l24
@@ -770,6 +772,8 @@ async function handleVs(req, res, url) {
         conversion: { value: conv, label: 'visit → signup %' },
         players_total: { value: a.total, label: 'total players' },
         new_players_24h: { value: a.new1d, label: 'first-time players (24h)' },
+        verified: { value: a.verified, label: 'email verified' },
+        unverified: { value: a.unverified, label: 'email NOT verified' },
       }
       const d = map[k] || { value: 0, label: k }
       return json(res, 200, { data: d })
